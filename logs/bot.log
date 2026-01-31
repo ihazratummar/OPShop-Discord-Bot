@@ -1,0 +1,130 @@
+2026-01-31 15:27:11,919 - bot - INFO - Shutting down...
+2026-01-31 15:27:14,552 - bot - INFO - Starting up...
+2026-01-31 15:27:17,274 - database - INFO - Connected to MongoDB at mongodb+srv://discord_db_user:ARKAscended123@discord-bot.sealhkq.mongodb.net/?appName=discord-bot
+2026-01-31 15:27:17,327 - bot - INFO - Loaded extension: modules.tickets.cog
+2026-01-31 15:27:17,334 - bot - INFO - Loaded extension: modules.economy.cog
+2026-01-31 15:27:17,338 - bot - INFO - Loaded extension: modules.shop.cog
+2026-01-31 15:27:17,341 - bot - INFO - Loaded extension: modules.admin.cog
+2026-01-31 15:27:17,343 - bot - INFO - Loaded extension: modules.redeem.cog
+2026-01-31 15:27:17,343 - bot - INFO - Loaded extension: modules.xp.cog
+2026-01-31 15:27:17,343 - bot - INFO - Syncing commands...
+2026-01-31 15:27:17,877 - bot - INFO - Synced 9 command(s).
+2026-01-31 15:27:20,830 - bot - INFO - Logged in as OP Shop#3971 (ID: 1466299929021386812)
+2026-01-31 15:27:20,830 - bot - INFO - Bot is ready and running!
+2026-01-31 15:28:28,719 - admin_cog - INFO - Command /shop-post-panel invoked by ihazratummar for category 697d7874ec6b7ec5dd61d4ea in channel blueprint.
+2026-01-31 15:28:29,088 - admin_cog - ERROR - Failed to send modal in /shop-post-panel: 404 Not Found (error code: 10062): Unknown interaction
+Traceback (most recent call last):
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/modules/admin/cog.py", line 58, in shop_post_panel
+    await interaction.response.send_modal(modal)
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/interactions.py", line 1273, in send_modal
+    response = await adapter.create_interaction_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/webhook/async_.py", line 224, in request
+    raise NotFound(response, data)
+discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
+2026-01-31 15:28:29,436 - admin_cog - ERROR - Failed to send error message to user: 400 Bad Request (error code: 40060): Interaction has already been acknowledged.
+2026-01-31 15:28:30,653 - shop_panel_service - INFO - Created ShopPanel for category 697d7874ec6b7ec5dd61d4ea in ch 1467003014643454116
+2026-01-31 15:31:07,388 - bot - INFO - Shutting down...
+2026-01-31 15:31:10,139 - bot - INFO - Starting up...
+2026-01-31 15:31:12,608 - database - INFO - Connected to MongoDB at mongodb+srv://discord_db_user:ARKAscended123@discord-bot.sealhkq.mongodb.net/?appName=discord-bot
+2026-01-31 15:31:12,660 - bot - INFO - Loaded extension: modules.tickets.cog
+2026-01-31 15:31:12,666 - bot - INFO - Loaded extension: modules.economy.cog
+2026-01-31 15:31:12,670 - bot - INFO - Loaded extension: modules.shop.cog
+2026-01-31 15:31:12,676 - bot - INFO - Loaded extension: modules.admin.cog
+2026-01-31 15:31:12,677 - bot - INFO - Loaded extension: modules.redeem.cog
+2026-01-31 15:31:12,678 - bot - INFO - Loaded extension: modules.xp.cog
+2026-01-31 15:31:12,678 - bot - INFO - Syncing commands...
+2026-01-31 15:31:13,241 - bot - INFO - Synced 9 command(s).
+2026-01-31 15:31:16,251 - bot - INFO - Logged in as OP Shop#3971 (ID: 1466299929021386812)
+2026-01-31 15:31:16,252 - bot - INFO - Bot is ready and running!
+2026-01-31 15:31:24,732 - admin_cog - INFO - Command /shop-post-panel invoked by ihazratummar for category 697d7874ec6b7ec5dd61d4ea in channel ticket-ihazratumm-7282.
+2026-01-31 15:31:25,095 - admin_cog - ERROR - Failed to send modal in /shop-post-panel: 404 Not Found (error code: 10062): Unknown interaction
+Traceback (most recent call last):
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/modules/admin/cog.py", line 58, in shop_post_panel
+    await interaction.response.send_modal(modal)
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/interactions.py", line 1273, in send_modal
+    response = await adapter.create_interaction_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/webhook/async_.py", line 224, in request
+    raise NotFound(response, data)
+discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
+2026-01-31 15:31:25,445 - admin_cog - ERROR - Failed to send error message to user: 400 Bad Request (error code: 40060): Interaction has already been acknowledged.
+2026-01-31 15:31:26,939 - shop_panel_service - INFO - Created ShopPanel for category 697d7874ec6b7ec5dd61d4ea in ch 1467007319903834173
+2026-01-31 15:33:19,630 - bot - INFO - Shutting down...
+2026-01-31 15:33:22,868 - bot - INFO - Starting up...
+2026-01-31 15:33:25,694 - database - INFO - Connected to MongoDB at mongodb+srv://discord_db_user:ARKAscended123@discord-bot.sealhkq.mongodb.net/?appName=discord-bot
+2026-01-31 15:33:25,723 - bot - INFO - Loaded extension: modules.tickets.cog
+2026-01-31 15:33:25,726 - bot - INFO - Loaded extension: modules.economy.cog
+2026-01-31 15:33:25,728 - bot - INFO - Loaded extension: modules.shop.cog
+2026-01-31 15:33:25,730 - bot - INFO - Loaded extension: modules.admin.cog
+2026-01-31 15:33:25,731 - bot - INFO - Loaded extension: modules.redeem.cog
+2026-01-31 15:33:25,731 - bot - INFO - Loaded extension: modules.xp.cog
+2026-01-31 15:33:25,731 - bot - INFO - Syncing commands...
+2026-01-31 15:33:26,439 - bot - INFO - Synced 9 command(s).
+2026-01-31 15:33:29,472 - bot - INFO - Logged in as OP Shop#3971 (ID: 1466299929021386812)
+2026-01-31 15:33:29,472 - bot - INFO - Bot is ready and running!
+2026-01-31 15:33:42,613 - admin_cog - INFO - Successfully sent EmbedJsonModal to ihazratummar.
+2026-01-31 15:34:39,305 - shop_panel_service - INFO - Created ShopPanel for category 697d7874ec6b7ec5dd61d4ea in ch 1467003014643454116
+2026-01-31 15:35:25,493 - ticket_service - INFO - Created ticket 697dd3e528fbbec40d00a619 for user 475357995367137282 in channel 1467098437878288505
+2026-01-31 15:44:06,719 - admin_cog - ERROR - Failed to send modal in /shop-post-panel: 404 Not Found (error code: 10062): Unknown interaction
+Traceback (most recent call last):
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/modules/admin/cog.py", line 56, in shop_post_panel
+    await interaction.response.send_modal(modal)
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/interactions.py", line 1273, in send_modal
+    response = await adapter.create_interaction_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/webhook/async_.py", line 224, in request
+    raise NotFound(response, data)
+discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
+2026-01-31 15:44:07,098 - admin_cog - ERROR - Failed to send error message to user: 400 Bad Request (error code: 40060): Interaction has already been acknowledged.
+2026-01-31 15:44:08,237 - shop_panel_service - INFO - Created ShopPanel for category 697d7874ec6b7ec5dd61d4ea in ch 1467003014643454116
+2026-01-31 15:45:23,381 - bot - INFO - Shutting down...
+2026-01-31 15:45:26,412 - bot - INFO - Starting up...
+2026-01-31 15:45:28,861 - database - INFO - Connected to MongoDB at mongodb+srv://discord_db_user:ARKAscended123@discord-bot.sealhkq.mongodb.net/?appName=discord-bot
+2026-01-31 15:45:28,904 - bot - INFO - Loaded extension: modules.tickets.cog
+2026-01-31 15:45:28,911 - bot - INFO - Loaded extension: modules.economy.cog
+2026-01-31 15:45:28,915 - bot - INFO - Loaded extension: modules.shop.cog
+2026-01-31 15:45:28,917 - bot - INFO - Loaded extension: modules.admin.cog
+2026-01-31 15:45:28,918 - bot - INFO - Loaded extension: modules.redeem.cog
+2026-01-31 15:45:28,919 - bot - INFO - Loaded extension: modules.xp.cog
+2026-01-31 15:45:28,919 - bot - INFO - Syncing commands...
+2026-01-31 15:45:29,475 - bot - INFO - Synced 9 command(s).
+2026-01-31 15:45:32,728 - bot - INFO - Logged in as OP Shop#3971 (ID: 1466299929021386812)
+2026-01-31 15:45:32,729 - bot - INFO - Bot is ready and running!
+2026-01-31 15:45:42,451 - admin_cog - ERROR - Failed to send modal in /shop-post-panel: 404 Not Found (error code: 10062): Unknown interaction
+Traceback (most recent call last):
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/modules/admin/cog.py", line 56, in shop_post_panel
+    await interaction.response.send_modal(modal)
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/interactions.py", line 1273, in send_modal
+    response = await adapter.create_interaction_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Volumes/External SSD/Coding/python/discord bot/OP Shop/Bot/.venv/lib/python3.13/site-packages/discord/webhook/async_.py", line 224, in request
+    raise NotFound(response, data)
+discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
+2026-01-31 15:45:42,816 - admin_cog - ERROR - Failed to send error message to user: 400 Bad Request (error code: 40060): Interaction has already been acknowledged.
+2026-01-31 15:45:43,977 - shop_panel_service - INFO - Created ShopPanel for category 697d7874ec6b7ec5dd61d4ea in ch 1467003014643454116
+2026-01-31 15:51:32,641 - bot - INFO - Shutting down...
+2026-01-31 15:51:36,802 - bot - INFO - Starting up...
+2026-01-31 15:51:39,224 - database - INFO - Connected to MongoDB at mongodb+srv://discord_db_user:ARKAscended123@discord-bot.sealhkq.mongodb.net/?appName=discord-bot
+2026-01-31 15:51:39,268 - bot - INFO - Loaded extension: modules.tickets.cog
+2026-01-31 15:51:39,275 - bot - INFO - Loaded extension: modules.economy.cog
+2026-01-31 15:51:39,279 - bot - INFO - Loaded extension: modules.shop.cog
+2026-01-31 15:51:39,283 - bot - INFO - Loaded extension: modules.admin.cog
+2026-01-31 15:51:39,284 - bot - INFO - Loaded extension: modules.redeem.cog
+2026-01-31 15:51:39,285 - bot - INFO - Loaded extension: modules.xp.cog
+2026-01-31 15:51:39,285 - bot - INFO - Syncing commands...
+2026-01-31 15:51:40,052 - bot - INFO - Synced 9 command(s).
+2026-01-31 15:51:43,023 - bot - INFO - Logged in as OP Shop#3971 (ID: 1466299929021386812)
+2026-01-31 15:51:43,023 - bot - INFO - Bot is ready and running!
