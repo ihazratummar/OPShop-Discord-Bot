@@ -79,4 +79,4 @@ class TicketControlView(View):
         
         import asyncio
         await asyncio.sleep(5)
-        await interaction.channel.delete()
+        # await interaction.channel.delete()

@@ -303,14 +303,17 @@ class ShopItemView(View):
 # Enhanced Panel Components (Ephemeral Flow)
 # ========================================
 
-class OrderNowView(View):
-    """Persistent view with Order Now button for shop panels."""
+class OrderNowButton(Button):
+    """Persistent Order Now button for shop panels."""
     def __init__(self, category_id: str):
-        super().__init__(timeout=None)
+        super().__init__(
+            label="🛒 Order Now", 
+            style=discord.ButtonStyle.green,
+            custom_id=f"order_now:{category_id}"
+        )
         self.category_id = category_id
-        
-    @discord.ui.button(label="🛒 Order Now", style=discord.ButtonStyle.green, custom_id="order_now_btn")
-    async def order_now(self, interaction: discord.Interaction, button: Button):
+    
+    async def callback(self, interaction: discord.Interaction):
         """Opens ephemeral shop UI locked to this category."""
         category = await CategoryService.get_category(self.category_id)
         if not category:
@@ -324,6 +327,73 @@ class OrderNowView(View):
             category_path=[category.name]
         )
         await view.refresh(interaction)
+
+
+class OrderNowView(View):
+    """Persistent view with Order Now button for shop panels."""
+    def __init__(self, category_id: str):
+        super().__init__(timeout=None)
+        self.category_id = category_id
+        self.add_item(OrderNowButton(category_id))
+
+
+class ItemOrderButton(Button):
+    """Persistent Order button for item-specific panels - creates ticket directly."""
+    def __init__(self, item_id: str):
+        super().__init__(
+            label="🛒 Order Now", 
+            style=discord.ButtonStyle.green,
+            custom_id=f"item_order:{item_id}"
+        )
+        self.item_id = item_id
+    
+    async def callback(self, interaction: discord.Interaction):
+        """Directly creates a ticket for this item."""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            item = await ItemService.get_item(self.item_id)
+            if not item:
+                await interaction.followup.send("❌ Item not found.", ephemeral=True)
+                return
+            
+            # Get category name for context
+            category = await CategoryService.get_category(item.category_id)
+            category_path = category.name if category else "Unknown"
+            
+            # Create ticket directly
+            ticket = await TicketService.create_ticket(
+                interaction.user, 
+                interaction.guild, 
+                item,
+                category_path=f"{category_path} > {item.name}"
+            )
+            channel = interaction.guild.get_channel(ticket.channel_id)
+            
+            if channel:
+                embed = discord.Embed(
+                    title=f"🎫 New Order: {item.name}",
+                    description=f"**Customer:** {interaction.user.mention}",
+                    color=discord.Color.green()
+                )
+                if item.image_url:
+                    embed.set_thumbnail(url=item.image_url)
+                embed.add_field(name="Price", value=f"{item.price:,.0f} {item.currency}", inline=True)
+                embed.add_field(name="Category", value=category_path, inline=True)
+                
+                view = TicketControlView(str(ticket.id))
+                await channel.send(content=f"{interaction.user.mention}", embed=embed, view=view)
+                await interaction.followup.send(f"✅ Ticket created: {channel.mention}", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+class ItemOrderView(View):
+    """Persistent view with Order button for item-specific panels."""
+    def __init__(self, item_id: str):
+        super().__init__(timeout=None)
+        self.item_id = item_id
+        self.add_item(ItemOrderButton(item_id))
 
 
 class EphemeralCategorySelect(Select):

@@ -1,6 +1,6 @@
 import discord
 from discord.ui import View, Modal, TextInput, Select, Button
-from modules.shop.services import CategoryService, ItemService
+from modules.shop.services import CategoryService, ItemService, logger
 from modules.shop.models import Category, Item
 import json
 
@@ -88,7 +88,7 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
 async def get_item_embed(item: Item, category_name: str) -> discord.Embed:
     embed = discord.Embed(
         title=f"📦 Managing: {item.name}", 
-        description=item.description, 
+        description=item.description,
         color=discord.Color.green() if item.is_active else discord.Color.red()
     )
     if item.image_url:
@@ -200,14 +200,114 @@ class ItemModal(Modal):
 
 class EmbedJsonModal(Modal):
     """Modal for pasting Discohook embed JSON when creating a shop panel."""
+
     def __init__(self, category_id: str, channel: discord.TextChannel):
         super().__init__(title="Create Shop Panel")
+
         self.category_id = category_id
+        self.channel = channel
+
+        self.json_input = TextInput(
+            label="Discohook Embed JSON",
+            placeholder="Paste the JSON from Discohook here (embeds array or single object)",
+            style=discord.TextStyle.paragraph,
+            required=True,
+            max_length=4000,
+        )
+
+        self.add_item(self.json_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # ✅ Lazy imports
+        from modules.shop.services import CategoryService
+        from modules.shop.services_panels import ShopPanelService
+        from modules.shop.ui import OrderNowView
+
+        # ✅ Defer immediately, ephemeral
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # Validate category
+            category = await CategoryService.get_category(self.category_id)
+            if not category:
+                await interaction.followup.send(
+                    f"❌ Category `{self.category_id}` not found.",
+                    ephemeral=True
+                )
+                return
+
+            raw_json = self.json_input.value.strip()
+
+            # Parse JSON
+            try:
+                data = json.loads(raw_json)
+            except json.JSONDecodeError as e:
+                await interaction.followup.send(
+                    f"❌ Invalid JSON: `{e}`",
+                    ephemeral=True
+                )
+                return
+
+            # Extract embed data (Discohook formats)
+            embed_data = None
+
+            if isinstance(data, dict):
+                if isinstance(data.get("embeds"), list) and data["embeds"]:
+                    embed_data = data["embeds"][0]
+                elif "title" in data or "description" in data:
+                    embed_data = data
+
+            elif isinstance(data, list) and data:
+                embed_data = data[0]
+
+            if not embed_data:
+                await interaction.followup.send(
+                    "❌ No valid embed found. Ensure the JSON contains an embed with `title` or `description`.",
+                    ephemeral=True
+                )
+                return
+
+            # Create embed
+            embed = discord.Embed.from_dict(embed_data)
+
+            # Create view
+            view = OrderNowView(category_id=self.category_id)
+
+            # Post panel
+            message = await self.channel.send(embed=embed, view=view)
+
+            # Persist panel
+            await ShopPanelService.create_panel(
+                guild_id=interaction.guild_id,
+                channel_id=self.channel.id,
+                message_id=message.id,
+                category_id=self.category_id,
+                embed_json=raw_json
+            )
+
+            await interaction.followup.send(
+                f"✅ Shop panel created in {self.channel.mention}!",
+                ephemeral=True
+            )
+
+        except Exception:
+            logger.exception("Failed to create shop panel")
+            await interaction.followup.send(
+                "❌ An unexpected error occurred while creating the panel.",
+                ephemeral=True
+            )
+
+
+class ItemEmbedJsonModal(Modal):
+    """Modal for pasting Discohook embed JSON when creating an item-specific panel."""
+    def __init__(self, item_id: str, channel: discord.TextChannel):
+        super().__init__(title="Create Item Panel")
+        self.item_id = item_id
         self.channel = channel
         
         self.json_input = TextInput(
             label="Discohook Embed JSON",
-            placeholder='Paste the JSON from Discohook here (embeds array or single object)',
+            placeholder='Paste the JSON from Discohook here',
             style=discord.TextStyle.paragraph,
             required=True,
             max_length=4000
@@ -215,14 +315,18 @@ class EmbedJsonModal(Modal):
         self.add_item(self.json_input)
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
+        import json
+        from modules.shop.services import ItemService
         from modules.shop.services_panels import ShopPanelService
+        from modules.shop.ui import ItemOrderView
+        
+        await interaction.response.defer(ephemeral=True)
+        
         try:
-            # Validate category exists
-            category = await CategoryService.get_category(self.category_id)
-            if not category:
-                await interaction.followup.send(f"❌ Category `{self.category_id}` not found.", ephemeral=True)
+            # Validate item exists
+            item = await ItemService.get_item(self.item_id)
+            if not item:
+                await interaction.followup.send(f"❌ Item `{self.item_id}` not found.", ephemeral=True)
                 return
             
             raw_json = self.json_input.value.strip()
@@ -234,42 +338,40 @@ class EmbedJsonModal(Modal):
                 await interaction.followup.send(f"❌ Invalid JSON: {e}", ephemeral=True)
                 return
             
-            # Handle Discohook format (can be {"embeds": [...]} or just {...})
+            # Handle Discohook format
             embed_data = None
             if isinstance(data, dict):
                 if "embeds" in data and isinstance(data["embeds"], list) and len(data["embeds"]) > 0:
-                    embed_data = data["embeds"][0]  # Use first embed
+                    embed_data = data["embeds"][0]
                 elif "title" in data or "description" in data:
-                    embed_data = data  # Direct embed object
+                    embed_data = data
             elif isinstance(data, list) and len(data) > 0:
-                embed_data = data[0]  # Array of embeds
+                embed_data = data[0]
                 
             if not embed_data:
-                await interaction.followup.send("❌ Could not find valid embed in JSON. Make sure it has 'title' or 'description'.", ephemeral=True)
+                await interaction.followup.send("❌ Could not find valid embed in JSON.", ephemeral=True)
                 return
             
-            # Convert to Discord Embed
+            # Create embed and view
             embed = discord.Embed.from_dict(embed_data)
-            
-            # Create Order Now button view
-            from modules.shop.ui import OrderNowView
-            view = OrderNowView(category_id=self.category_id)
+            view = ItemOrderView(item_id=self.item_id)
             
             # Post to channel
             message = await self.channel.send(embed=embed, view=view)
             
-            # Save panel to DB
+            # Save panel to DB (using item_id in category_id field for simplicity, or we can add item_id field)
             await ShopPanelService.create_panel(
                 guild_id=interaction.guild_id,
                 channel_id=self.channel.id,
                 message_id=message.id,
-                category_id=self.category_id,
+                category_id=f"item:{self.item_id}",  # Mark as item panel
                 embed_json=raw_json
             )
             
-            await interaction.followup.send(f"✅ Panel created in {self.channel.mention}!", ephemeral=True)
+            await interaction.followup.send(f"✅ Item panel created in {self.channel.mention}!", ephemeral=True)
             
         except Exception as e:
+            logger.exception("Failed to create item panel")
             await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 # --- Views ---

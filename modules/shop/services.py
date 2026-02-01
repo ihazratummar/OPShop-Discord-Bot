@@ -159,3 +159,18 @@ class ItemService:
         """Delete an item."""
         result = await Database.items().delete_one({"_id": ObjectId(item_id)})
         return result.deleted_count > 0
+
+    @staticmethod
+    async def get_all_items(active_only: bool = False) -> List[Item]:
+        """Fetch all items across all categories."""
+        query = {}
+        if active_only:
+            query["is_active"] = True
+            
+        cursor = Database.items().find(query)
+        items = []
+        async for doc in cursor:
+            items.append(Item(**doc))
+        return items
+
+
