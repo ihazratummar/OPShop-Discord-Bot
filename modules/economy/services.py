@@ -29,35 +29,11 @@ class EconomyService:
         return new_user
 
     @staticmethod
-    async def get_balances(user_id: int) -> Tuple[float, int]:
+    async def get_balances(user_id: int) -> int:
         """Return (credits, tokens)."""
         user = await EconomyService.get_user(user_id)
-        return user.credits, user.tokens
+        return user.tokens
 
-    @staticmethod
-    async def modify_credits(user_id: int, amount: float, reason: str, actor_id: int) -> float:
-        """Add/remove credits and log transaction."""
-        user = await EconomyService.get_user(user_id)
-        new_balance = user.credits + amount
-        if new_balance < 0:
-            raise ValueError("Insufficient funds")
-
-        await Database.users().update_one(
-            {"discord_id": user_id},
-            {"$set": {"credits": new_balance}}
-        )
-
-        # Log
-        txn = Transaction(
-            user_id=user_id,
-            type='admin_adjustment' if amount > 0 else 'purchase', # Simple heuristic, can be passed
-            amount_credits=amount,
-            description=reason,
-            performed_by=actor_id
-        )
-        await TransactionService.log_transaction(txn)
-        
-        return new_balance
 
     @staticmethod
     async def modify_tokens(user_id: int, amount: int, reason: str, actor_id: int) -> int:
@@ -77,7 +53,7 @@ class EconomyService:
             type='reward' if amount > 0 else 'redeem',
             amount_tokens=amount,
             description=reason,
-            performed_by=actor_id
+            performed_by=actor_id,
         )
         await TransactionService.log_transaction(txn)
 

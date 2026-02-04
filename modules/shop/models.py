@@ -35,7 +35,7 @@ class Item(MongoModel):
     
     # Rewards
     xp_reward: int = Field(default=10, ge=0)
-    token_reward: int = Field(default=1, ge=0)
+    token_reward: int = Field(default=10, ge=0)
 
 class Category(MongoModel):
     name: str = Field(min_length=1, max_length=50)
@@ -49,6 +49,8 @@ class ShopPanel(MongoModel):
     """A persistent message displaying a specific shop category."""
     channel_id: int = Field(..., description="Discord Channel ID")
     message_id: int = Field(..., description="Discord Message ID")
-    category_id: str = Field(..., description="Root category ID for this panel")
+    category_id: Optional[str] = Field(..., description="Root category ID for this panel")
     guild_id: int = Field(..., description="Discord Guild ID")
     embed_json: Optional[str] = Field(default=None, description="Custom Discohook embed JSON")
+    type: Optional[str] = Field(default=None, description="Shop type")
+    custom_id: Optional[str] = Field(default=None, description="Button name")

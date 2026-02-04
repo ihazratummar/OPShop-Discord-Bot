@@ -13,7 +13,8 @@ class User(MongoModel):
     # XP & Trust
     xp: int = Field(default=0, ge=0)
     level: int = Field(default=1, ge=1)
-    trust_score: float = Field(default=1.0, ge=0.0) # Multiplier, starts at 1.0 (100%)
+    reputations: int = Field(default=0)
+    rep_given_counter : int = Field(default=0, ge=0)
     
     # Check
     is_blacklisted: bool = Field(default=False)

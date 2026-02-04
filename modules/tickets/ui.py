@@ -1,23 +1,253 @@
+import json
+import random
+import uuid
+from uuid import UUID
+
 import discord
-from discord.ui import View, Button
-from modules.tickets.services import TicketService
-from modules.economy.services import TransactionService, EconomyService
+from discord import TextStyle, Interaction
+from discord.ui import View, Button, TextInput, Modal
+
+from core.config import settings
+from core.database import Database, logger
 from modules.economy.models import Transaction
+from modules.economy.services import TransactionService, EconomyService
 from modules.shop.services import ItemService
+from modules.tickets.models import TicketSettingsModel
+from modules.tickets.services import TicketService
 from modules.xp.services import XPService
+
+
+async def get_ticket_settings_embed(guild_id: int) -> discord.Embed:
+    data = await TicketService.get_ticket_settings(guild_id)
+
+    if not data:
+        raise RuntimeError("Ticket settings not found!")
+
+    def channel_or_placeholder(channel_id, text):
+        return f"<#{channel_id}>" if channel_id else f"⚠ {text}"
+
+    def role_or_placeholder(role_id, text):
+        return f"<@&{role_id}>" if role_id else f"⚠ {text}"
+
+    embed = discord.Embed(
+        title="🎟 Ticket System Settings",
+        description=(
+            "Configure how purchase tickets are created, managed, and archived.\n"
+            "Only administrators should modify these settings."
+        ),
+        color=discord.Color.green()
+    )
+
+    embed.add_field(
+        name="📂 Ticket Settings",
+        value="────────────────────────────────────",
+        inline=False
+    )
+
+    embed.add_field(
+        name="Open Category",
+        value=channel_or_placeholder(data.open_ticket_category_id, "Not configured"),
+        inline=True
+    )
+
+    embed.add_field(
+        name="Closed Category",
+        value=channel_or_placeholder(data.close_ticket_category_id, "Not configured"),
+        inline=True
+    )
+
+    embed.add_field(
+        name="Log Channel",
+        value=channel_or_placeholder(data.ticket_logs_channel_id, "Not configured"),
+        inline=True
+    )
+
+    embed.add_field(
+        name="Transcript Channel",
+        value=channel_or_placeholder(data.ticket_transcript_channel_id, "Not configured"),
+        inline=True
+    )
+
+    embed.add_field(
+        name="👥 Staff Role",
+        value=role_or_placeholder(data.ticket_manager_role_id, "Manager role not set"),
+        inline=True
+    )
+
+    embed.set_footer(text="Ticket System • OPShop")
+
+    return embed
+
+
+class TicketPanelModal(discord.ui.Modal):
+    def __init__(self, root_view: discord.ui.View, ticket_data: TicketSettingsModel):
+        super().__init__(timeout=None, title="Ticket Panel Settings")
+        self.root_view = root_view
+        self.ticket_data = ticket_data
+
+        self.open_ticket_category_id_input = TextInput(
+            label="Open Ticket Category Id",
+            style=TextStyle.short,
+            custom_id="open_ticket_category_id",
+            placeholder="1423254451120246944",
+            default=self.ticket_data.open_ticket_category_id,
+            required=True,
+            min_length=15,
+            max_length=20
+        )
+        self.close_ticket_category_id_input = TextInput(
+            label="Close Ticket Category Id",
+            style=TextStyle.short,
+            custom_id="close_ticket_category_id",
+            placeholder="1423254451120246944",
+            default=self.ticket_data.close_ticket_category_id,
+            required=True,
+            min_length=15,
+            max_length=20
+        )
+        self.ticket_logs_channel_id_input = TextInput(
+            label="Ticket logs channel Id",
+            style=TextStyle.short,
+            custom_id="ticket_logs_channel_id",
+            placeholder="1423254451120246944",
+            default=self.ticket_data.ticket_logs_channel_id,
+            required=True,
+            min_length=15,
+            max_length=20
+        )
+        self.ticket_transcript_channel_id_input = TextInput(
+            label="Ticket transcript channel Id",
+            style=TextStyle.short,
+            custom_id="ticket_transcript_channel_id",
+            placeholder="1423254451120246944",
+            default=self.ticket_data.ticket_logs_channel_id,
+            required=True,
+            min_length=15,
+            max_length=20
+        )
+
+        self.ticket_manager_role_id_input = TextInput(
+            label="Ticket manager role Id",
+            style=TextStyle.short,
+            custom_id="ticket_manager_role_id",
+            placeholder="1423254451120246944",
+            default=self.ticket_data.ticket_manager_role_id,
+            required=True,
+            min_length=15,
+            max_length=20
+        )
+        self.add_item(self.open_ticket_category_id_input)
+        self.add_item(self.close_ticket_category_id_input)
+        self.add_item(self.ticket_logs_channel_id_input)
+        self.add_item(self.ticket_transcript_channel_id_input)
+        self.add_item(self.ticket_manager_role_id_input)
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+
+        def is_category(cid: int) -> bool:
+            ch = interaction.guild.get_channel(cid)
+            return isinstance(ch, discord.CategoryChannel)
+
+        def is_channel(cid: int) -> bool:
+            return interaction.guild.get_channel(cid) is not None
+
+        def is_role(rid: int) -> bool:
+            return interaction.guild.get_role(rid) is not None
+
+        error_messages = []
+
+        def parse(value: str, name: str):
+            try:
+                return int(value)
+            except ValueError:
+                error_messages.append(f"{name} must be a numeric ID.")
+                return None
+
+        open_category_id = parse(self.open_ticket_category_id_input.value, "Open category")
+        close_category_id = parse(self.close_ticket_category_id_input.value, "Close category")
+        logs_id = parse(self.ticket_logs_channel_id_input.value, "Logs channel")
+        transcript_id = parse(self.ticket_transcript_channel_id_input.value, "Transcript channel")
+        role_id = parse(self.ticket_manager_role_id_input.value, "Manager role")
+
+        if open_category_id and not is_category(open_category_id):
+            error_messages.append("Open category not found.")
+        if close_category_id and not is_category(close_category_id):
+            error_messages.append("Close category not found.")
+        if logs_id and not is_channel(logs_id):
+            error_messages.append("Logs channel not found.")
+        if transcript_id and not is_channel(transcript_id):
+            error_messages.append("Transcript channel not found.")
+        if role_id and not is_role(role_id):
+            error_messages.append("Manager role not found.")
+
+        if error_messages:
+            await interaction.followup.send("\n".join(error_messages), ephemeral=True)
+            return
+
+        data = TicketSettingsModel(
+            guild_id=interaction.guild_id,
+            open_ticket_category_id=open_category_id,
+            close_ticket_category_id=close_category_id,
+            ticket_logs_channel_id=logs_id,
+            ticket_transcript_channel_id=transcript_id,
+            ticket_manager_role_id=role_id
+        )
+
+        await Database.ticket_settings().update_one(
+            {"guild_id": interaction.guild_id},
+            {"$set": data.model_dump()},
+            upsert=True
+        )
+
+        embed = await get_ticket_settings_embed(interaction.guild_id)
+        await interaction.edit_original_response(embed=embed, view=self.root_view)
+
+
+class TicketSettingsView(View):
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=None)
+        self.guild_id = guild_id
+
+    @discord.ui.button(label="Edit", style=discord.ButtonStyle.blurple, emoji="✏️")
+    async def edit_ticket_panel(self, interaction: discord.Interaction, button: Button):
+        ticket_settings = await TicketService.get_ticket_settings(self.guild_id)
+        modal = TicketPanelModal(root_view=self, ticket_data=ticket_settings)
+        await interaction.response.send_modal(modal)
+
 
 class TicketControlView(View):
     def __init__(self, ticket_id: str):
-        super().__init__(timeout=None) # Persistent view logic needs setup, for now simple
+        super().__init__(timeout=None)  # Persistent view logic needs setup, for now simple
         self.ticket_id = ticket_id
 
-    @discord.ui.button(label="Complete Order", style=discord.ButtonStyle.green, emoji="✅")
-    async def complete_order(self, interaction: discord.Interaction, button: Button):
+        complete_button = discord.ui.Button(
+            label="Complete Order",
+            style=discord.ButtonStyle.green,
+            emoji="✅",
+            custom_id=f"complete_order_{ticket_id}",
+        )
+        complete_button.callback = self.complete_order
+
+        close_button = discord.ui.Button(
+            label="Close",
+            style=discord.ButtonStyle.red,
+            emoji="🔒",
+            custom_id=f"close_order_{ticket_id}",
+        )
+        close_button.callback = self.close_ticket_btn
+
+        self.add_item(complete_button)
+        self.add_item(close_button)
+
+    async def complete_order(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
         # 1. Get ticket details
         ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
         if not ticket:
-             await interaction.response.send_message("Ticket not found!", ephemeral=True)
-             return
+            await interaction.followup.send("Ticket not found!", ephemeral=True)
+            return
 
         # 2. Get Item details if exists
         item = None
@@ -28,7 +258,6 @@ class TicketControlView(View):
         txn = Transaction(
             user_id=ticket.user_id,
             type='purchase',
-            amount_credits=item.price if item and item.currency == 'credits' else 0,
             amount_tokens=item.price if item and item.currency == 'tokens' else 0,
             item_id=str(item.id) if item else None,
             item_name=item.name if item else "Custom Order",
@@ -41,13 +270,13 @@ class TicketControlView(View):
             # Tokens
             if item.token_reward > 0:
                 await EconomyService.modify_tokens(
-                    ticket.user_id, 
-                    item.token_reward, 
-                    f"Reward for purchasing {item.name}", 
+                    ticket.user_id,
+                    item.token_reward,
+                    f"Reward for purchasing {item.name}",
                     interaction.user.id
                 )
                 await interaction.channel.send(f"🎉 User rewarded **{item.token_reward}** Tokens!")
-            
+
             # XP (Price / 10)
             if item.price > 0:
                 xp_amount = int(item.price / 10)
@@ -60,23 +289,146 @@ class TicketControlView(View):
 
         # 4. Close Ticket
         await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
-        
-        await interaction.response.send_message("Order completed! formatting transcript...", ephemeral=True)
-        await interaction.channel.send(f"✅ **Order Completed** by {interaction.user.mention}. Ticket closing in 5 seconds.")
-        
-        import asyncio
-        await asyncio.sleep(5)
-        await interaction.channel.delete() 
+        await interaction.edit_original_response(view=TicketClosedView(ticket_id=self.ticket_id, root_view=self))
+        await interaction.followup.send("Order completed! formatting transcript...", ephemeral=True)
 
-    @discord.ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="🔒")
-    async def close_ticket_btn(self, interaction: discord.Interaction, button: Button):
+    async def close_ticket_btn(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
         if ticket:
-             await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
-        
-        await interaction.response.send_message("Closing ticket...", ephemeral=True)
+            await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
+
+        await interaction.followup.send("Closing ticket...", ephemeral=True)
+        await interaction.edit_original_response(view=TicketClosedView(ticket_id=self.ticket_id, root_view=self))
         await interaction.channel.send(f"🔒 **Ticket Closed** by {interaction.user.mention}. Closing in 5 seconds.")
-        
-        import asyncio
-        await asyncio.sleep(5)
-        # await interaction.channel.delete()
+
+
+class TicketClosedView(View):
+    def __init__(self, ticket_id: str, root_view: discord.ui.View):
+        super().__init__(timeout=None)
+        self.ticket_id = ticket_id
+        self.root_view = root_view
+
+        delete_btn = discord.ui.Button(
+            label="Delete Ticket",
+            style=discord.ButtonStyle.red,
+            emoji="🗑️",
+            custom_id=f"close_ticket_{ticket_id}",
+        )
+        delete_btn.callback = self.delete_ticket_btn
+        self.add_item(delete_btn)
+
+
+    async def delete_ticket_btn(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
+        member = interaction.user
+        allowed = (
+                member.id == settings.owner_id
+                or any(role.id == manager_role.id for role in member.roles)
+                or member.guild_permissions.administrator
+        )
+
+        if not allowed:
+            await interaction.followup.send("You are not allowed to do that!")
+            return
+
+        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
+        await TicketService.delete_ticket(ticket=ticket, delete_by_user=interaction.user.id, guild=interaction.guild)
+        await interaction.channel.delete(reason="Ticket Deleted")
+
+
+class EmbedJsonModal(Modal):
+    """
+    Reusable modal that parses Discohook JSON
+    and returns a discord.Embed via callback.
+    """
+
+    def __init__(self, title: str, channel: discord.TextChannel, button_name: str, on_success):
+        super().__init__(title=title)
+
+        self.on_success = on_success  # async callback(embed, interaction, channel, button_name, raw_json)
+        self.button_name = button_name
+        self.channel = channel
+
+        self.json_input = TextInput(
+            label="Discohook Embed JSON",
+            placeholder="Paste embed JSON here",
+            style=discord.TextStyle.paragraph,
+            required=True,
+            max_length=4000,
+        )
+
+        self.add_item(self.json_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        raw_json = self.json_input.value.strip()
+
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            await interaction.followup.send(f"❌ Invalid JSON: `{e}`", ephemeral=True)
+            return
+
+        embed_data = None
+
+        if isinstance(data, dict):
+            if isinstance(data.get("embeds"), list) and data["embeds"]:
+                embed_data = data["embeds"][0]
+            elif "title" in data or "description" in data:
+                embed_data = data
+        elif isinstance(data, list) and data:
+            embed_data = data[0]
+
+        if not embed_data:
+            await interaction.followup.send(
+                "❌ No valid embed found.",
+                ephemeral=True
+            )
+            return
+
+        embed = discord.Embed.from_dict(embed_data)
+
+        try:
+            await self.on_success(embed, interaction, self.channel, self.button_name, raw_json)
+        except Exception:
+            logger.exception("Embed modal callback failed")
+            await interaction.followup.send(
+                "❌ Failed while processing embed.",
+                ephemeral=True
+            )
+
+
+class CustomTicketView(View):
+    def __init__(self, custom_id: str, button_name: str = "Create Ticket", ):
+        super().__init__(timeout=None)
+        self.button_name = button_name
+        self.custom_id = custom_id
+        self.add_item(CustomTicketButton(label=self.button_name, custom_id=self.custom_id))
+
+
+class CustomTicketButton(Button):
+    def __init__(self, label: str, custom_id: str):
+        super().__init__(
+            label=label,
+            emoji="<:logo:1467765480352907407>",
+            custom_id=f"custom_button_{custom_id}"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            ### Create ticket
+            ticket = await TicketService.create_ticket(
+                user=interaction.user,
+                guild=interaction.guild,
+            )
+            channel = interaction.guild.get_channel(ticket.channel_id)
+            view = TicketControlView(str(ticket.id))
+            ticket_manager = await TicketService.get_ticket_manager_role(guild=interaction.guild)
+            await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", view=view)
+            await interaction.followup.send(f"✅ Ticket Created in {channel.mention}!", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)

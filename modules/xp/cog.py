@@ -32,8 +32,8 @@ class XPCog(commands.Cog):
         
         embed.add_field(name="Level", value=f"**{db_user.level}**", inline=True)
         embed.add_field(name="XP", value=f"{db_user.xp:,} / {next_level_xp:,} ({percentage:.1f}%)", inline=True)
-        embed.add_field(name="Trust Score", value=f"**{db_user.trust_score:.2f}x**", inline=True)
-        
+        embed.add_field(name="Reputation Score", value=f"**{db_user.reputations}**", inline=True)
+
         embed.add_field(name="Credits", value=f"{db_user.credits:,.2f}", inline=True)
         embed.add_field(name="Tokens", value=f"{db_user.tokens:,}", inline=True)
         
@@ -45,18 +45,11 @@ class XPCog(commands.Cog):
         
         desc = ""
         for idx, u in enumerate(users, 1):
-            desc += f"**{idx}.** <@{u.discord_id}> - Lvl {u.level} ({u.xp:,} XP) | {u.trust_score}x Trust\n"
+            desc += f"**{idx}.** <@{u.discord_id}> - Lvl {u.level} ({u.xp:,} XP) | {u.reputations}x +rep\n"
             
         embed = discord.Embed(title="🏆 Shop Leaderboard", description=desc, color=discord.Color.gold())
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="admin-honor", description="Modify a user's trust score")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def admin_honor(self, interaction: discord.Interaction, user: discord.User, amount: float):
-        new_score = await XPService.modify_trust_score(user.id, amount, interaction.user.id)
-        
-        emoji = "📈" if amount > 0 else "📉"
-        await interaction.response.send_message(f"{emoji} Updated {user.mention}'s Trust Score to **{new_score:.2f}x**.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(XPCog(bot))

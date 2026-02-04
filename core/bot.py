@@ -5,6 +5,8 @@ from core.database import Database
 from core.logger import setup_logger
 import os
 
+from modules.invite_tracker.service import InviteTrackerService
+
 logger = setup_logger("bot")
 
 class ShopBot(commands.Bot):
@@ -66,6 +68,13 @@ class ShopBot(commands.Bot):
     async def on_ready(self):
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
         logger.info("Bot is ready and running!")
+        await self.change_presence(
+            status= discord.Status.do_not_disturb,
+            activity= discord.Game(name=f"Official OP Shop bot")
+        )
+
+        for guild in self.guilds:
+            await  InviteTrackerService.cache_guild(guild=guild)
 
     async def close(self):
         """Called when bot is shutting down."""

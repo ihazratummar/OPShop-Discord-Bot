@@ -65,23 +65,6 @@ class XPService:
         }
 
     @staticmethod
-    async def modify_trust_score(user_id: int, amount: float, actor_id: int) -> float:
-        """Modify user's trust score."""
-        user = await EconomyService.get_user(user_id)
-        new_score = user.trust_score + amount
-        
-        # Cap at 0.0 minimum
-        if new_score < 0.0:
-            new_score = 0.0
-            
-        await Database.users().update_one(
-            {"discord_id": user_id},
-            {"$set": {"trust_score": new_score}}
-        )
-        logger.info(f"User {user_id} trust score modified by {amount} to {new_score}")
-        return new_score
-
-    @staticmethod
     async def get_leaderboard(limit: int = 10):
         """Get top users by Level/XP."""
         cursor = Database.users().find({}).sort([("level", -1), ("xp", -1)]).limit(limit)

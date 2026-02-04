@@ -4,6 +4,7 @@ from discord.ext import commands
 from modules.shop.services import CategoryService
 
 from core.logger import setup_logger
+from modules.tickets.ui import CustomTicketView
 
 logger = setup_logger("shop_cog")
 
@@ -19,20 +20,24 @@ class ShopCog(commands.Cog):
         panels = await ShopPanelService.get_all_panels()
         category_count = 0
         item_count = 0
+        custom_panel = 0
         
         for panel in panels:
             # Check if this is an item panel (category_id starts with "item:")
-            if panel.category_id.startswith("item:"):
+            if panel.type == "item":
                 item_id = panel.category_id.replace("item:", "")
                 view = ItemOrderView(item_id=item_id)
                 item_count += 1
+            elif panel.type == "custom":
+                view = CustomTicketView(custom_id=panel.custom_id)
+                custom_panel += 1
             else:
                 view = OrderNowView(category_id=panel.category_id)
                 category_count += 1
-            
+
             self.bot.add_view(view, message_id=panel.message_id)
         
-        logger.info(f"Registered {category_count} category panel(s) and {item_count} item panel(s).")
+        logger.info(f"Registered {category_count} category panel(s) and {item_count} item panel(s) and {custom_panel} custom panel(s).")
 
     @app_commands.command(name="shop", description="Open the shop")
     async def shop_command(self, interaction: discord.Interaction):

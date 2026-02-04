@@ -11,7 +11,7 @@ class TicketMessage(MongoModel):
 class Ticket(MongoModel):
     user_id: int = Field(..., description="Discord ID of the ticket owner")
     channel_id: Optional[int] = Field(None, description="Discord Channel ID")
-    status: Literal['open', 'closed', 'archived'] = Field(default='open')
+    status: Literal['open', 'closed', 'archived', 'deleted'] = Field(default='open')
     topic: str = Field(default="Support")
     
     # Context
@@ -23,6 +23,14 @@ class Ticket(MongoModel):
 
     @field_validator('status')
     def validate_status(cls, v):
-        if v not in ['open', 'closed', 'archived']:
+        if v not in ['open', 'closed', 'archived', 'deleted']:
             raise ValueError('Invalid status')
         return v
+
+class TicketSettingsModel(MongoModel):
+    guild_id: int = Field(..., description="Discord ID of the guild")
+    open_ticket_category_id: Optional[int] = Field(None, description="Discord ID of the ticket category")
+    close_ticket_category_id: Optional[int] = Field(None, description="Discord ID of the ticket category")
+    ticket_logs_channel_id: Optional[int] = Field(None, description="Discord ID of the ticket logs channel")
+    ticket_transcript_channel_id: Optional[int] = Field(None, description="Discord ID of the ticket transcript channel")
+    ticket_manager_role_id: Optional[int] = Field(None, description="Discord ID of the ticket manager role")

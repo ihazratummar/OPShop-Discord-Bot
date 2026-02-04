@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     mongo_uri: str
     db_name: str = "OP_SHOP_TEST"
     owner_id: int
+    openai_api_key: str
 
     class Config:
         env_file = ".env"

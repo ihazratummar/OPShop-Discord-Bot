@@ -16,7 +16,7 @@ class Database:
             cls._db = cls._client[settings.db_name]
             # Verify connection
             await cls._client.admin.command('ping')
-            logger.info(f"Connected to MongoDB at {settings.mongo_uri}")
+            logger.info(f"Connected to MongoDB")
         except Exception as e:
             logger.error(f"Failed to connect to MongoDB: {e}")
             raise e
@@ -53,5 +53,27 @@ class Database:
         return cls.get_db().tickets
 
     @classmethod
+    def ticket_settings(cls):
+        return cls.get_db().ticket_settings
+
+    @classmethod
     def transactions(cls):
         return cls.get_db().transactions
+
+    @classmethod
+    def reputations_logs(cls):
+        return cls.get_db().reputations_logs
+
+    @classmethod
+    def invites(cls):
+        return cls.get_db().invites
+
+    @classmethod
+    def invite_joins(cls):
+        return cls.get_db().invites_joins
+
+    @classmethod
+    def guild_settings(cls):
+        return cls.get_db().guild_settings
+
+

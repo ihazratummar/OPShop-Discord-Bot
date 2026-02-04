@@ -1,9 +1,9 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from modules.economy.services import EconomyService
-from core.permissions import is_admin
+
 from core.logger import setup_logger
+from modules.economy.services import EconomyService
 
 logger = setup_logger("economy_cog")
 
@@ -59,18 +59,6 @@ class EconomyCog(commands.Cog):
     
     admin_group = app_commands.Group(name="admin-economy", description="Manage user balances")
 
-    @admin_group.command(name="give-credits", description="Add credits to a user")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def give_credits(self, interaction: discord.Interaction, user: discord.User, amount: float, reason: str = "Admin Grant"):
-        await EconomyService.modify_credits(user.id, amount, reason, interaction.user.id)
-        await interaction.response.send_message(f"Added **{amount}** credits to {user.mention}.", ephemeral=True)
-        
-        await AuditLogService.log_action(
-            "Economy: Give Credits", 
-            interaction.user, 
-            f"Gave **{amount}** credits to {user.mention}\n**Reason:** {reason}", 
-            interaction.guild
-        )
 
     @admin_group.command(name="give-tokens", description="Add tokens to a user")
     @app_commands.checks.has_permissions(administrator=True)

@@ -7,7 +7,6 @@ class Transaction(MongoModel):
     type: Literal['purchase', 'refund', 'reward', 'admin_adjustment', 'redeem'] = Field(...)
     
     # Amounts
-    amount_credits: float = Field(default=0.0)
     amount_tokens: int = Field(default=0)
     
     # Context

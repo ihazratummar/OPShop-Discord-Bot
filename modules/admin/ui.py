@@ -164,11 +164,13 @@ class ItemModal(Modal):
         self.price_input = TextInput(label="Price", default=str(item.price) if item else "0")
         self.desc_input = TextInput(label="Description", default=item.description if item else "", required=False, style=discord.TextStyle.paragraph)
         self.img_input = TextInput(label="Image URL", default=item.image_url if item else "", required=False)
+        self.reward_token = TextInput(label="Reward Shop Token", default= item.token_reward if item else "10", required=False, style=discord.TextStyle.short)
 
         self.add_item(self.name_input)
         self.add_item(self.price_input)
         self.add_item(self.desc_input)
         self.add_item(self.img_input)
+        self.add_item(self.reward_token)
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -177,14 +179,22 @@ class ItemModal(Modal):
         except ValueError:
             await interaction.response.send_message("Price must be number.", ephemeral=True)
             return
+        try:
+            token_reward = int(self.reward_token.value)
+        except ValueError:
+            await interaction.response.send_message("Reward token must be number.", ephemeral=True)
+            return
             
         data = {
             "name": self.name_input.value,
             "price": price,
             "description": self.desc_input.value,
             "category_id": self.category_id,
-            "image_url": self.img_input.value
+            "image_url": self.img_input.value,
+            "token_reward" : token_reward
         }
+
+
         
         if self.item:
             await ItemService.update_item(str(self.item.id), data)
@@ -282,7 +292,8 @@ class EmbedJsonModal(Modal):
                 channel_id=self.channel.id,
                 message_id=message.id,
                 category_id=self.category_id,
-                embed_json=raw_json
+                embed_json=raw_json,
+                _type="category"
             )
 
             await interaction.followup.send(
@@ -365,7 +376,8 @@ class ItemEmbedJsonModal(Modal):
                 channel_id=self.channel.id,
                 message_id=message.id,
                 category_id=f"item:{self.item_id}",  # Mark as item panel
-                embed_json=raw_json
+                embed_json=raw_json,
+                _type="item"
             )
             
             await interaction.followup.send(f"✅ Item panel created in {self.channel.mention}!", ephemeral=True)

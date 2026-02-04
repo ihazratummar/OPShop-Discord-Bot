@@ -337,6 +337,13 @@ class OrderNowView(View):
         self.add_item(OrderNowButton(category_id))
 
 
+class ItemOrderView(View):
+    """Persistent view with Order button for item-specific panels."""
+    def __init__(self, item_id: str):
+        super().__init__(timeout=None)
+        self.item_id = item_id
+        self.add_item(ItemOrderButton(item_id))
+
 class ItemOrderButton(Button):
     """Persistent Order button for item-specific panels - creates ticket directly."""
     def __init__(self, item_id: str):
@@ -388,12 +395,7 @@ class ItemOrderButton(Button):
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
 
 
-class ItemOrderView(View):
-    """Persistent view with Order button for item-specific panels."""
-    def __init__(self, item_id: str):
-        super().__init__(timeout=None)
-        self.item_id = item_id
-        self.add_item(ItemOrderButton(item_id))
+
 
 
 class EphemeralCategorySelect(Select):
