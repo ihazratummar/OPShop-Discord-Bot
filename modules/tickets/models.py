@@ -10,6 +10,7 @@ class TicketMessage(MongoModel):
     
 class Ticket(MongoModel):
     user_id: int = Field(..., description="Discord ID of the ticket owner")
+    guild_id: int = Field(..., description="Discord ID of the guild")
     channel_id: Optional[int] = Field(None, description="Discord Channel ID")
     status: Literal['open', 'closed', 'archived', 'deleted'] = Field(default='open')
     topic: str = Field(default="Support")

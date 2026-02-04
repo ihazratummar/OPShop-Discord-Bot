@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from modules.guild.service import GuildSettingService
 from modules.reputation.service import ReputationService
 
 
@@ -28,12 +29,13 @@ class Reputation(commands.Cog):
             await interaction.followup.send("Are you trying to increase your reputation? 😏")
             return
 
-        seller_role = discord.utils.get(member.guild.roles, name="Seller")
+        guild_settings = await GuildSettingService.get_guild_settings(guild=interaction.guild)
+        seller_role = interaction.guild.get_role(guild_settings.seller_role_id)
         if not seller_role:
-            seller_role = await interaction.guild.create_role(name="Seller")
+            await interaction.followup.send(f"Seller role not configured!", ephemeral=True)
 
         if seller_role not in member.roles:
-            await interaction.followup.send("Please mention a seller to add reputation.")
+            await interaction.followup.send(f"User do not have {seller_role.name} role.", ephemeral=True)
             return
 
         await ReputationService.add_reputation(

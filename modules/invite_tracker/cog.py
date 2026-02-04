@@ -1,7 +1,6 @@
 import discord
-from discord.app_commands import user_install
 from discord.ext import commands
-
+from discord import app_commands
 from core.database import Database
 from modules.invite_tracker.service import InviteTrackerService
 
@@ -49,6 +48,24 @@ class InviteTrackerCog(commands.Cog):
             inviter= inviter,
             guild= guild
         )
+
+    @app_commands.command(name="set_invite_logs_channel", description="Set a logs channel for invite tracker")
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    async def set_invite_logs_channel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
+        await interaction.response.defer(ephemeral=True)
+        if channel is None:
+            channel = interaction.channel
+
+        await Database.guild_settings().update_one(
+            {
+                "guild_id": interaction.guild.id
+            },
+            {"$set":{"invite_logs_channel_id":channel.id}},
+            upsert= True
+        )
+        await interaction.followup.send(f"{channel.mention} has been set as invite logs channel", ephemeral=True)
+
 
 
 async def setup(bot):

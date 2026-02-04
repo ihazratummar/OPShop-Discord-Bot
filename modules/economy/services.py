@@ -60,14 +60,14 @@ class EconomyService:
         return new_balance
 
     @staticmethod
-    async def transfer_credits(from_id: int, to_id: int, amount: float) -> bool:
+    async def transfer_tokens(from_id: int, to_id: int, amount: int) -> bool:
         """Transfer credits between users with optional tax."""
         if amount <= 0:
             raise ValueError("Amount must be positive")
 
         # Check sender balance
         sender = await EconomyService.get_user(from_id)
-        if sender.credits < amount:
+        if sender.tokens < amount:
             raise ValueError("Insufficient funds")
 
         # Receiver ensure exists
@@ -82,8 +82,8 @@ class EconomyService:
         receive_amount = amount - tax_amount
 
         # Updates
-        await EconomyService.modify_credits(from_id, -amount, f"Transfer to {to_id}", from_id)
-        await EconomyService.modify_credits(to_id, receive_amount, f"Transfer from {from_id} (Tax: {tax_amount})", from_id)
+        await EconomyService.modify_tokens(from_id, -amount, f"Transfer to {to_id}", from_id)
+        await EconomyService.modify_tokens(to_id, int(receive_amount), f"Transfer from {from_id} (Tax: {tax_amount})", from_id)
         
         return True
 

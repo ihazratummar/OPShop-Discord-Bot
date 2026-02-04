@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.logger import setup_logger
+from modules.audit.services import AuditLogService
 from modules.economy.services import EconomyService
 
 logger = setup_logger("economy_cog")
@@ -31,13 +32,13 @@ class EconomyCog(commands.Cog):
             await interaction.response.send_message("Failed to fetch balance.", ephemeral=True)
 
     @app_commands.command(name="pay", description="Transfer credits to another user")
-    async def pay_command(self, interaction: discord.Interaction, user: discord.User, amount: float):
+    async def pay_command(self, interaction: discord.Interaction, user: discord.User, amount: int):
         if user.id == interaction.user.id:
             await interaction.response.send_message("You cannot pay yourself.", ephemeral=True)
             return
-        
+
         try:
-            await EconomyService.transfer_credits(interaction.user.id, user.id, amount)
+            await EconomyService.transfer_tokens(interaction.user.id, user.id, amount)
             await interaction.response.send_message(f"✅ Successfully sent **{amount:,.2f}** credits to {user.mention}!")
         except ValueError as e:
             await interaction.response.send_message(f"Transfer failed: {str(e)}", ephemeral=True)
@@ -47,11 +48,8 @@ class EconomyCog(commands.Cog):
 
     # --- Admin Commands ---
     
-from modules.audit.services import AuditLogService
+    from modules.audit.services import AuditLogService
 
-class EconomyCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
 
     # ... User Commands omitted for brevity ...
 

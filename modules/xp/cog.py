@@ -34,7 +34,6 @@ class XPCog(commands.Cog):
         embed.add_field(name="XP", value=f"{db_user.xp:,} / {next_level_xp:,} ({percentage:.1f}%)", inline=True)
         embed.add_field(name="Reputation Score", value=f"**{db_user.reputations}**", inline=True)
 
-        embed.add_field(name="Credits", value=f"{db_user.credits:,.2f}", inline=True)
         embed.add_field(name="Tokens", value=f"{db_user.tokens:,}", inline=True)
         
         await interaction.response.send_message(embed=embed)

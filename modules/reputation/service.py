@@ -6,6 +6,7 @@ import asyncio
 
 from core.database import Database
 from modules.economy.services import EconomyService
+from modules.guild.service import GuildSettingService
 from modules.reputation.models import ReputationLogs
 from modules.xp.services import XPService
 
@@ -15,6 +16,9 @@ class ReputationService:
 
     @staticmethod
     async def reputation(message: discord.Message):
+
+        guild = message.guild
+
         if message.author.bot:
             return
 
@@ -36,9 +40,11 @@ class ReputationService:
             await message.reply("You can not rep yourself!")
             return
 
-        seller_role = discord.utils.get(message.guild.roles, name="Seller")
+        guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
+        seller_role = guild.get_role(guild_settings.seller_role_id)
         if not seller_role:
-            seller_role = await message.guild.create_role(name="Seller")
+            await message.reply(f"Seller role not configured!")
+            return
 
         if not seller_role or seller_role not in target.roles:
             await message.reply(f"Only user with the {seller_role.name} role can receive reputation!")

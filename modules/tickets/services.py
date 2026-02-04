@@ -15,11 +15,18 @@ logger = setup_logger("ticket_service")
 
 class TicketService:
     @staticmethod
-    async def create_ticket(user: discord.User, guild: discord.Guild, item: Item = None,
-                            category_path: str = None) -> Ticket:
+    async def create_ticket(user: discord.User, guild: discord.Guild, item: Item = None, category_path: str = None) -> tuple[Ticket |  None, str] :
         """
         Create a new ticket in the DB and a private channel in Discord.
         """
+
+        doc = await Database.tickets().find_one({"user_id": user.id, "status": "open", "guild_id": guild.id})
+        existing_ticket = Ticket(**doc) if doc else None
+        if existing_ticket:
+            channel = guild.get_channel(existing_ticket.channel_id)
+            if channel:
+                return  existing_ticket, "exists"
+
 
         ticket_manager_role = await TicketService.get_ticket_manager_role(guild=guild)
         open_ticket_category = await TicketService.create_or_get_ticket_category(guild=guild,
@@ -56,6 +63,7 @@ class TicketService:
         ticket = Ticket(
             user_id=user.id,
             channel_id=channel.id,
+            guild_id=guild.id,
             status="open",
             topic=topic,
             related_item_id=str(item.id) if item else None
@@ -71,7 +79,7 @@ class TicketService:
             description=f"Ticket created for user {user.mention} in channel {channel.id}",
             color=discord.Color.green()
         )
-        return ticket
+        return ticket , "created"
 
     @staticmethod
     async def get_ticket_by_channel(channel_id: int) -> Ticket:

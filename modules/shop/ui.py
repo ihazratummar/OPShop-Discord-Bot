@@ -3,6 +3,7 @@ from discord.ui import View, Select, Button
 from typing import List
 from modules.shop.models import Category, Item
 from modules.shop.services import CategoryService, ItemService
+from modules.tickets.models import Ticket
 from modules.tickets.services import TicketService
 from modules.tickets.ui import TicketControlView
 
@@ -274,7 +275,16 @@ class ShopItemView(View):
     async def buy_now(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("Opening ticket...", ephemeral=True)
         try:
-            ticket = await TicketService.create_ticket(interaction.user, interaction.guild, self.item)
+            ticket, status = await TicketService.create_ticket(interaction.user, interaction.guild, self.item)
+
+            if status == "exists":
+                channel = interaction.guild.get_channel(ticket.channel_id)
+                await interaction.followup.send(
+                    f"You already have an open ticket: {channel.mention}",
+                    ephemeral=True
+                )
+                return
+
             channel = interaction.guild.get_channel(ticket.channel_id)
             
             if channel:
@@ -369,12 +379,20 @@ class ItemOrderButton(Button):
             category_path = category.name if category else "Unknown"
             
             # Create ticket directly
-            ticket = await TicketService.create_ticket(
+            ticket, status = await TicketService.create_ticket(
                 interaction.user, 
                 interaction.guild, 
                 item,
                 category_path=f"{category_path} > {item.name}"
             )
+            if status == "exists":
+                channel = interaction.guild.get_channel(ticket.channel_id)
+                await interaction.followup.send(
+                    f"You already have an open ticket: {channel.mention}",
+                    ephemeral=True
+                )
+                return
+
             channel = interaction.guild.get_channel(ticket.channel_id)
             
             if channel:
@@ -518,12 +536,20 @@ class EphemeralItemView(View):
         try:
             # Create ticket with category path context
             category_context = " > ".join(self.category_path + [self.item.name])
-            ticket = await TicketService.create_ticket(
+            ticket, status = await TicketService.create_ticket(
                 interaction.user, 
                 interaction.guild, 
                 self.item,
                 category_path=category_context
             )
+            if status == "exists":
+                channel = interaction.guild.get_channel(ticket.channel_id)
+                await interaction.followup.send(
+                    f"You already have an open ticket: {channel.mention}",
+                    ephemeral=True
+                )
+                return
+
             channel = interaction.guild.get_channel(ticket.channel_id)
             
             if channel:

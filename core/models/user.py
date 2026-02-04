@@ -8,7 +8,6 @@ class User(MongoModel):
     
     # Economy
     tokens: int = Field(default=0, ge=0)
-    credits: float = Field(default=0.0, ge=0)
     
     # XP & Trust
     xp: int = Field(default=0, ge=0)

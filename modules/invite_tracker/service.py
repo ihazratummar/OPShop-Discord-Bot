@@ -2,9 +2,10 @@ import datetime
 
 import discord
 
-from core.database import Database
+from core.database import Database, logger
 from modules.economy.models import Transaction
 from modules.economy.services import EconomyService, TransactionService
+from modules.guild.service import GuildSettingService
 from modules.invite_tracker.models import InviteJoins
 from modules.xp.services import XPService
 
@@ -84,14 +85,30 @@ class InviteTrackerService:
         )
         await TransactionService.log_transaction(transaction)
 
+        logger.warning("Reached invite log section")
+
         # Count total invites
         count = await Database.invite_joins().count_documents(
             {"guild_id": guild.id, "inviter_id": inviter.id}
         )
 
-        # Send logs
-        log_channel = member.guild.get_channel(1466303972603068558)
+        guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
+        logger.warning(f"Guild settings: {guild_settings}")
+        if not guild_settings:
+            logger.info("Guild settings missing")
+            return
+
+        log_channel_id = guild_settings.invite_logs_channel_id
+        logger.warning(f"log_channel_id raw: {guild_settings.invite_logs_channel_id}")
+
+        if not log_channel_id:
+            logger.info("Invite log channel not configured")
+            return
+
+        log_channel = guild.get_channel(int(log_channel_id))
+        logger.warning(f"Resolved channel: {log_channel}")
         if not log_channel:
+            logger.info(f"Log channel {log_channel_id} not found in guild")
             return
 
         embed = discord.Embed(
@@ -105,5 +122,13 @@ class InviteTrackerService:
             value=f"{inviter.mention} has now **{count}** invites",
             inline= False
         )
+        embed.add_field(
+            name="Invite Reward",
+            value=f"{inviter.mention} has earned 10 Shop Tokens",
+            inline= False
+        )
 
         await log_channel.send(embed=embed)
+
+
+

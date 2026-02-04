@@ -12,7 +12,7 @@ from core.database import Database, logger
 from modules.economy.models import Transaction
 from modules.economy.services import TransactionService, EconomyService
 from modules.shop.services import ItemService
-from modules.tickets.models import TicketSettingsModel
+from modules.tickets.models import TicketSettingsModel, Ticket
 from modules.tickets.services import TicketService
 from modules.xp.services import XPService
 
@@ -243,6 +243,19 @@ class TicketControlView(View):
     async def complete_order(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
+        ## Check Access
+        manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
+        member = interaction.user
+        allowed = (
+                member.id == settings.owner_id
+                or any(role.id == manager_role.id for role in member.roles)
+                or member.guild_permissions.administrator
+        )
+
+        if not allowed:
+            await interaction.followup.send("You are not allowed to do that!")
+            return
+
         # 1. Get ticket details
         ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
         if not ticket:
@@ -421,14 +434,25 @@ class CustomTicketButton(Button):
         await interaction.response.defer(ephemeral=True)
         try:
             ### Create ticket
-            ticket = await TicketService.create_ticket(
+            ticket, status = await TicketService.create_ticket(
                 user=interaction.user,
                 guild=interaction.guild,
             )
+
+            if status == "exists":
+                channel = interaction.guild.get_channel(ticket.channel_id)
+                await interaction.followup.send(
+                    f"You already have an open ticket: {channel.mention}",
+                    ephemeral=True
+                )
+                return
+
+
             channel = interaction.guild.get_channel(ticket.channel_id)
             view = TicketControlView(str(ticket.id))
             ticket_manager = await TicketService.get_ticket_manager_role(guild=interaction.guild)
             await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", view=view)
             await interaction.followup.send(f"✅ Ticket Created in {channel.mention}!", ephemeral=True)
+
         except Exception as e:
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
