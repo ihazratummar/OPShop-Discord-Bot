@@ -92,23 +92,25 @@ class InviteTrackerService:
             {"guild_id": guild.id, "inviter_id": inviter.id}
         )
 
+        logger.warning(f"Invite Join {inviter.mention}'s invite! {count}")
+
         guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
         logger.warning(f"Guild settings: {guild_settings}")
         if not guild_settings:
-            logger.info("Guild settings missing")
+            logger.warning("Guild settings missing")
             return
 
         log_channel_id = guild_settings.invite_logs_channel_id
         logger.warning(f"log_channel_id raw: {guild_settings.invite_logs_channel_id}")
 
         if not log_channel_id:
-            logger.info("Invite log channel not configured")
+            logger.warning("Invite log channel not configured")
             return
 
         log_channel = guild.get_channel(int(log_channel_id))
         logger.warning(f"Resolved channel: {log_channel}")
         if not log_channel:
-            logger.info(f"Log channel {log_channel_id} not found in guild")
+            logger.warning(f"Log channel {log_channel_id} not found in guild")
             return
 
         embed = discord.Embed(

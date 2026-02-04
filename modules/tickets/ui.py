@@ -217,9 +217,10 @@ class TicketSettingsView(View):
 
 
 class TicketControlView(View):
-    def __init__(self, ticket_id: str):
+    def __init__(self, ticket_id: str, is_custom_ticket: bool = False):
         super().__init__(timeout=None)  # Persistent view logic needs setup, for now simple
-        self.ticket_id = ticket_id
+        self.ticket_id = ticket_id,
+        self.is_custom_ticket = is_custom_ticket
 
         complete_button = discord.ui.Button(
             label="Complete Order",
@@ -237,7 +238,8 @@ class TicketControlView(View):
         )
         close_button.callback = self.close_ticket_btn
 
-        self.add_item(complete_button)
+        if not self.is_custom_ticket:
+            self.add_item(complete_button)
         self.add_item(close_button)
 
     async def complete_order(self, interaction: discord.Interaction):
@@ -449,7 +451,7 @@ class CustomTicketButton(Button):
 
 
             channel = interaction.guild.get_channel(ticket.channel_id)
-            view = TicketControlView(str(ticket.id))
+            view = TicketControlView(str(ticket.id), is_custom_ticket=True)
             ticket_manager = await TicketService.get_ticket_manager_role(guild=interaction.guild)
             await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", view=view)
             await interaction.followup.send(f"✅ Ticket Created in {channel.mention}!", ephemeral=True)
