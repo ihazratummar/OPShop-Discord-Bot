@@ -14,6 +14,9 @@ class Ticket(MongoModel):
     channel_id: Optional[int] = Field(None, description="Discord Channel ID")
     status: Literal['open', 'closed', 'archived', 'deleted'] = Field(default='open')
     topic: str = Field(default="Support")
+    message_id: Optional[int] = Field(None, description="Discord Message ID")
+    claimed_by: Optional[int] = Field(None, description="Discord ID of the claimed user")
+    claimed_at: Optional[datetime] = datetime.utcnow()
     
     # Context
     related_item_id: Optional[str] = Field(None, description="If this ticket is for an item purchase")

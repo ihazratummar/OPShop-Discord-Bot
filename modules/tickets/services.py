@@ -4,6 +4,9 @@ import uuid
 from typing import List
 
 import discord
+from pymongo.asynchronous.collection import ReturnDocument
+
+from modules.guild.service import GuildSettingService
 from modules.tickets.models import Ticket, TicketMessage, TicketSettingsModel
 from modules.shop.models import Item
 from core.database import Database
@@ -15,7 +18,13 @@ logger = setup_logger("ticket_service")
 
 class TicketService:
     @staticmethod
-    async def create_ticket(user: discord.User, guild: discord.Guild, item: Item = None, category_path: str = None) -> tuple[Ticket |  None, str] :
+    async def create_ticket(
+            user: discord.User,
+            guild: discord.Guild,
+            item: Item = None,
+            category_path: str = None,
+            message_id: int = None,
+    ) ->  tuple[Ticket | None, str]:
         """
         Create a new ticket in the DB and a private channel in Discord.
         """
@@ -25,8 +34,7 @@ class TicketService:
         if existing_ticket:
             channel = guild.get_channel(existing_ticket.channel_id)
             if channel:
-                return  existing_ticket, "exists"
-
+                return existing_ticket, "exists"
 
         ticket_manager_role = await TicketService.get_ticket_manager_role(guild=guild)
         open_ticket_category = await TicketService.create_or_get_ticket_category(guild=guild,
@@ -66,7 +74,8 @@ class TicketService:
             guild_id=guild.id,
             status="open",
             topic=topic,
-            related_item_id=str(item.id) if item else None
+            related_item_id=str(item.id) if item else None,
+            message_id= message_id
         )
 
         result = await Database.tickets().insert_one(ticket.to_mongo())
@@ -79,7 +88,7 @@ class TicketService:
             description=f"Ticket created for user {user.mention} in channel {channel.id}",
             color=discord.Color.green()
         )
-        return ticket , "created"
+        return ticket, "created"
 
     @staticmethod
     async def get_ticket_by_channel(channel_id: int) -> Ticket:
@@ -125,6 +134,43 @@ class TicketService:
                 await transcript_channel.send(file=transcript_file)
         except Exception as e:
             logger.error(f"Failed to generate transcript: {e}")
+
+    @staticmethod
+    async def claim_ticket(ticket: Ticket, claimed_by: int, guild: discord.Guild) -> tuple[Ticket, bool]:
+        """Claim a ticket"""
+        try:
+            doc = await Database.tickets().find_one_and_update(
+                {
+                    "_id": ticket.id,
+                    "claimed_by": None
+                },
+                {
+                    "$set": {"claimed_by": claimed_by}
+                },
+                return_document=ReturnDocument.AFTER,
+            )
+
+            if doc is None:
+                # Someone already claimed it
+                existing = await Database.tickets().find_one({"_id": ticket.id})
+                return Ticket(**existing), False
+
+            logger.info(f"Ticket claimed by {claimed_by} in channel {ticket.channel_id}")
+
+            asyncio.create_task(
+                TicketService.send_logs_to_channel(
+                    guild=guild,
+                    title=f"Ticket Claimed",
+                    description=f"{ticket.id} was claimed by <@{claimed_by}>!",
+                    color=discord.Color.blurple()
+                )
+            )
+
+            return Ticket(**doc), True
+
+        except Exception as e:
+            logger.error(f"Failed to claim ticket: {e}")
+            return ticket, False
 
     @staticmethod
     async def close_ticket(ticket: Ticket, closed_by_user_id: int, bot: discord.Client, guild: discord.Guild) -> bool:
@@ -348,7 +394,7 @@ class TicketService:
         import secrets
         custom_id = secrets.token_hex(4)
 
-        view = CustomTicketView(button_name = button_name, custom_id = custom_id)
+        view = CustomTicketView(button_name=button_name, custom_id=custom_id)
         message = await channel.send(embed=embed, view=view)
         asyncio.create_task(
             ShopPanelService.create_panel(
@@ -357,7 +403,7 @@ class TicketService:
                 message_id=message.id,
                 embed_json=raw_json,
                 _type="custom",
-                custom_id= custom_id
+                custom_id=custom_id
             )
         )
 

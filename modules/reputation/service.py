@@ -1,16 +1,15 @@
 import time
-from itertools import count
-
 import discord
 import asyncio
 
 from core.database import Database
+from core.logger import setup_logger
 from modules.economy.services import EconomyService
 from modules.guild.service import GuildSettingService
 from modules.reputation.models import ReputationLogs
 from modules.xp.services import XPService
 
-
+logger = setup_logger("reputation")
 class ReputationService:
     COOLDOWN_SECONDS = 60 * 60 * 24
 
@@ -41,7 +40,9 @@ class ReputationService:
             return
 
         guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
+        logger.debug(f"Guild settings: {guild_settings}")
         seller_role = guild.get_role(guild_settings.seller_role_id)
+        logger.debug(f"Seller role: {seller_role}")
         if not seller_role:
             await message.reply(f"Seller role not configured!")
             return

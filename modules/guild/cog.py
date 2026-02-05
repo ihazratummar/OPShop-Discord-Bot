@@ -19,7 +19,7 @@ class GuildCog(commands.Cog):
         try:
             await Database.guild_settings().update_one(
                 {"guild_id": interaction.guild.id},
-                {"$set": {"seller_role": role.id}},
+                {"$set": {"seller_role_id": role.id}},
                 upsert=True
             )
             await interaction.followup.send(f"{role.mention} has been set to your seller role.")

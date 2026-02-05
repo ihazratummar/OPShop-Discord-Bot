@@ -6,11 +6,13 @@ from uuid import UUID
 import discord
 from discord import TextStyle, Interaction
 from discord.ui import View, Button, TextInput, Modal
+from typing_extensions import override
 
 from core.config import settings
 from core.database import Database, logger
 from modules.economy.models import Transaction
 from modules.economy.services import TransactionService, EconomyService
+from modules.guild.service import GuildSettingService
 from modules.shop.services import ItemService
 from modules.tickets.models import TicketSettingsModel, Ticket
 from modules.tickets.services import TicketService
@@ -217,10 +219,11 @@ class TicketSettingsView(View):
 
 
 class TicketControlView(View):
-    def __init__(self, ticket_id: str, is_custom_ticket: bool = False):
+    def __init__(self, ticket_id: str, is_custom_ticket: bool = False, is_item_ticket: bool = False):
         super().__init__(timeout=None)  # Persistent view logic needs setup, for now simple
-        self.ticket_id = ticket_id,
+        self.ticket_id = ticket_id
         self.is_custom_ticket = is_custom_ticket
+        self.is_item_ticket = is_item_ticket
 
         complete_button = discord.ui.Button(
             label="Complete Order",
@@ -238,8 +241,20 @@ class TicketControlView(View):
         )
         close_button.callback = self.close_ticket_btn
 
+        claim_ticket_button = discord.ui.Button(
+            label="Claim Ticket",
+            style=discord.ButtonStyle.green,
+            emoji="📌",
+            custom_id=f"claim_ticket_{ticket_id}",
+        )
+        claim_ticket_button.callback = self.claim_ticket_btn
+
         if not self.is_custom_ticket:
             self.add_item(complete_button)
+
+        if self.is_item_ticket:
+            self.add_item(claim_ticket_button)
+
         self.add_item(close_button)
 
     async def complete_order(self, interaction: discord.Interaction):
@@ -317,6 +332,84 @@ class TicketControlView(View):
         await interaction.edit_original_response(view=TicketClosedView(ticket_id=self.ticket_id, root_view=self))
         await interaction.channel.send(f"🔒 **Ticket Closed** by {interaction.user.mention}. Closing in 5 seconds.")
 
+    async def claim_ticket_btn(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        seller_role = await GuildSettingService.get_seller_role(interaction.guild)
+        # 1. Check the claimer is a seller or admin or not
+        if not seller_role:
+            await interaction.followup.send("Seller role not configured", ephemeral=True)
+            return
+
+        allowed = (
+                interaction.user.guild_permissions.administrator or
+                seller_role in interaction.user.roles
+        )
+        if not allowed:
+            await interaction.followup.send("To claim a ticket you must be an admin or a seller!", ephemeral=True)
+            return
+
+        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
+
+        if interaction.user.id == ticket.user_id:
+            await interaction.followup.send("You cannot claim a ticket!", ephemeral=True)
+            return
+
+        if ticket:
+            ticket, status = await TicketService.claim_ticket(ticket, interaction.user.id, interaction.guild)
+            if not status:
+                await interaction.followup.send(f"Ticket already claimed by {interaction.user.mention}!",
+                                                ephemeral=True)
+                return
+
+        for item in self.children:
+            if item.custom_id == f"claim_ticket_{self.ticket_id}":
+                item.disabled = True
+                break
+
+        channel: discord.TextChannel = interaction.channel
+        msg = await channel.fetch_message(ticket.message_id)
+
+        embed = msg.embeds[0]
+
+        embed.add_field(
+            name="📌 Claimed By",
+            value=interaction.user.mention,
+            inline=False
+        )
+
+        ticket_owner_id = ticket.user_id
+        ticket_owner = interaction.guild.get_member(ticket_owner_id)
+
+        overwrites = {}
+
+        if ticket_owner:
+            overwrites[ticket_owner] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True
+            )
+
+        overwrites[interaction.user] = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            manage_messages=True
+        )
+
+        overwrites[interaction.guild.me] = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            manage_messages=True
+        )
+
+        await msg.edit(
+            content=f"{interaction.user.mention} {ticket_owner.mention}",
+            embed=embed,
+            view=self
+        )
+
+        await channel.edit(overwrites=overwrites)
+
 
 class TicketClosedView(View):
     def __init__(self, ticket_id: str, root_view: discord.ui.View):
@@ -332,7 +425,6 @@ class TicketClosedView(View):
         )
         delete_btn.callback = self.delete_ticket_btn
         self.add_item(delete_btn)
-
 
     async def delete_ticket_btn(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -449,12 +541,18 @@ class CustomTicketButton(Button):
                 )
                 return
 
-
             channel = interaction.guild.get_channel(ticket.channel_id)
             view = TicketControlView(str(ticket.id), is_custom_ticket=True)
             ticket_manager = await TicketService.get_ticket_manager_role(guild=interaction.guild)
-            await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", view=view)
+            message = await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", view=view)
+            await Database.tickets().update_one(
+                {"_id": ticket.id},
+                {"$set": {"message_id": message.id}},
+                upsert=True
+            )
             await interaction.followup.send(f"✅ Ticket Created in {channel.mention}!", ephemeral=True)
+
+
 
         except Exception as e:
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
