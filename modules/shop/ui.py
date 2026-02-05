@@ -393,7 +393,7 @@ class ItemOrderButton(Button):
 
     def __init__(self, item_id: str, button_emoji: str):
         super().__init__(
-            label="🛒 Order Now",
+            label="Order Now",
             style=discord.ButtonStyle.green,
             emoji= button_emoji,
             custom_id=f"item_order:{item_id}"

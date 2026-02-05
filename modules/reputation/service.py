@@ -122,3 +122,18 @@ class ReputationService:
             reason="Reputation added",
             actor_id=from_user_id,
         )
+
+    @staticmethod
+    async def add_rep(user_id: int, guild_id: int, reputation_amount: int = 1):
+        rep = ReputationLogs(
+            to_user_id=user_id,
+            guild_id= guild_id,
+            timestamp=int(time.time()),
+        )
+        await Database.reputations_logs().insert_one(rep.to_mongo())
+        await Database.users().update_one(
+            {"discord_id": user_id},
+            {"$inc": {"reputations": reputation_amount}},
+            upsert=True
+        )
+

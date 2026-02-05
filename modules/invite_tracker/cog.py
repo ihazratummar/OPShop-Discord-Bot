@@ -42,10 +42,11 @@ class InviteTrackerCog(commands.Cog):
             return
 
         inviter = used_invite.inviter
+        inviter_member = guild.get_member(inviter.id)
 
         await InviteTrackerService.process_join(
             member= member,
-            inviter= inviter,
+            inviter= inviter_member,
             guild= guild
         )
 

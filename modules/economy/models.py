@@ -10,8 +10,8 @@ class Transaction(MongoModel):
     amount_tokens: int = Field(default=0)
     
     # Context
-    item_id: Optional[str] = Field(None)
-    item_name: Optional[str] = Field(None)
+    item_id: Optional[str] =None
+    item_name: Optional[str] = None
     description: str = Field(default="")
     
     # Metadata

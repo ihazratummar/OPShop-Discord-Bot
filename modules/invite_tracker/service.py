@@ -7,6 +7,7 @@ from modules.economy.models import Transaction
 from modules.economy.services import EconomyService, TransactionService
 from modules.guild.service import GuildSettingService
 from modules.invite_tracker.models import InviteJoins
+from modules.reputation.service import ReputationService
 from modules.xp.services import XPService
 
 
@@ -50,7 +51,7 @@ class InviteTrackerService:
         }
 
     @staticmethod
-    async def process_join(member: discord.Member, inviter: discord.User, guild: discord.Guild):
+    async def process_join(member: discord.Member, inviter: discord.Member, guild: discord.Guild):
 
         # prevent self-invite wired case
         if member.id == inviter.id:
@@ -74,16 +75,18 @@ class InviteTrackerService:
             timestamp = datetime.datetime.now()
         )
         await Database.invite_joins().insert_one(invite_join.to_mongo())
-        await EconomyService.modify_tokens(user_id= inviter.id, amount= 10, reason="Invite Reward", actor_id=inviter.id)
+
+        seller_role = await GuildSettingService.get_seller_role(guild=guild)
+
+
+        if seller_role in inviter.roles:
+            reward_message = f"Earned +1 reputation!"
+            await  ReputationService.add_rep(user_id= inviter.id, guild_id= guild.id)
+        else:
+            reward_message = f"Earned 10 Shop Tokens"
+            await EconomyService.modify_tokens(user_id= inviter.id, amount= 10, reason="Invite Reward", actor_id=inviter.id)
+
         await XPService.add_xp(user_id= inviter.id, amount= 50, source= "Invite reward")
-        transaction = Transaction(
-            user_id= member.id,
-            type= "reward",
-            amount_tokens=10,
-            description="Invite reward",
-            performed_by=inviter.id,
-        )
-        await TransactionService.log_transaction(transaction)
 
         logger.warning("Reached invite log section")
 
@@ -121,14 +124,16 @@ class InviteTrackerService:
 
         embed.add_field(
             name="Inviter Total",
-            value=f"{inviter.mention} has now **{count}** invites",
-            inline= False
+            value=f"Total**{count}** invites",
+            inline= True
         )
-        embed.add_field(
-            name="Invite Reward",
-            value=f"{inviter.mention} has earned 10 Shop Tokens",
-            inline= False
-        )
+
+        if reward_message:
+            embed.add_field(
+                name="Invite Reward",
+                value=reward_message,
+                inline= True
+            )
 
         await log_channel.send(embed=embed)
 
