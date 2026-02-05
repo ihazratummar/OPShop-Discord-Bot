@@ -89,6 +89,50 @@ class ShopPanelService:
             logger.error(f"Failed to refresh panel {panel.id}: {e}")
 
     @staticmethod
+    async def get_panel_by_channel(channel_id: int, panel_type: str) -> Optional[ShopPanel]:
+        """Fetch a panel by channel ID and type."""
+        doc = await Database.get_db().shop_panels.find_one({"channel_id": channel_id, "type": panel_type})
+        if doc:
+            return ShopPanel(**doc)
+        return None
+
+    @staticmethod
+    async def update_panel(
+            panel_id: ObjectId, 
+            message_id: int, 
+            embed_json: str, 
+            category_id: str = None, 
+            custom_id: str = None
+        ):
+        """Update a panel record."""
+        updates = {
+            "message_id": message_id,
+            "embed_json": embed_json,
+        }
+        if category_id is not None:
+            updates["category_id"] = category_id
+        if custom_id is not None:
+            updates["custom_id"] = custom_id
+
+        await Database.get_db().shop_panels.update_one(
+            {"_id": panel_id},
+            {"$set": updates}
+        )
+    
+    # Keeping old methods as aliases or deprecating if preferred, 
+    # but for this request I'll just replace the custom-specific ones we just added 
+    # with these generic ones in usage, or redirect them.
+    # Since I just added them in the previous step, I can just replace them entirely.
+
+    @staticmethod
+    async def get_custom_panel_by_channel(channel_id: int) -> Optional[ShopPanel]:
+        return await ShopPanelService.get_panel_by_channel(channel_id, "custom")
+
+    @staticmethod
+    async def update_custom_panel(panel_id: ObjectId, message_id: int, embed_json: str, custom_id: str):
+        await ShopPanelService.update_panel(panel_id, message_id, embed_json, custom_id=custom_id)
+
+    @staticmethod
     async def refresh_all_panels(bot: discord.Client):
         """Iterate and refresh all known panels concurrently."""
         panels = await ShopPanelService.get_all_panels()

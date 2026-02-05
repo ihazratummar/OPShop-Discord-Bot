@@ -283,6 +283,26 @@ class EmbedJsonModal(Modal):
             # Create view
             view = OrderNowView(category_id=self.category_id)
 
+            # Check for existing panel
+            existing_panel = await ShopPanelService.get_panel_by_channel(self.channel.id, "category")
+            if existing_panel:
+                try:
+                    message = await self.channel.fetch_message(existing_panel.message_id)
+                    await message.edit(embed=embed, view=view)
+                    await ShopPanelService.update_panel(
+                        panel_id=existing_panel.id,
+                        message_id=message.id,
+                        embed_json=raw_json,
+                        category_id=self.category_id
+                    )
+                    await interaction.followup.send(
+                        f"✅ Shop panel updated in {self.channel.mention}!",
+                        ephemeral=True
+                    )
+                    return
+                except discord.NotFound:
+                    await ShopPanelService.delete_panel(existing_panel.message_id)
+
             # Post panel
             message = await self.channel.send(embed=embed, view=view)
 
@@ -367,6 +387,27 @@ class ItemEmbedJsonModal(Modal):
             # Create embed and view
             embed = discord.Embed.from_dict(embed_data)
             view = ItemOrderView(item_id=self.item_id, button_emoji = self.button_emoji)
+
+            # Check for existing panel
+            existing_panel = await ShopPanelService.get_panel_by_channel(self.channel.id, "item")
+            if existing_panel:
+                try:
+                    message = await self.channel.fetch_message(existing_panel.message_id)
+                    await message.edit(embed=embed, view=view)
+                    await ShopPanelService.update_panel(
+                        panel_id=existing_panel.id,
+                        message_id=message.id,
+                        embed_json=raw_json,
+                        category_id=f"item:{self.item_id}" # Mark as item panel
+                    )
+                    await interaction.followup.send(
+                        f"✅ Item panel updated in {self.channel.mention}!",
+                        ephemeral=True
+                    )
+                    return
+                except discord.NotFound:
+                    await ShopPanelService.delete_panel(existing_panel.message_id)
+
             
             # Post to channel
             message = await self.channel.send(embed=embed, view=view)

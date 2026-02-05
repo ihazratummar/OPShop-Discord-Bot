@@ -395,7 +395,30 @@ class TicketService:
         import secrets
         custom_id = secrets.token_hex(4)
 
-        view = CustomTicketView(button_name=button_name, custom_id=custom_id, button_emoji= button_emoji)
+        view = CustomTicketView(button_name=button_name, custom_id=custom_id, button_emoji=button_emoji)
+
+        # check if there is an existing ticket panel in this channel
+        # Use generic get_panel_by_channel with type="custom"
+        existing_panel = await ShopPanelService.get_panel_by_channel(channel.id, "custom")
+
+        if existing_panel:
+            try:
+                message = await channel.fetch_message(existing_panel.message_id)
+                await message.edit(embed=embed, view=view)
+                
+                # Use generic update_panel
+                await ShopPanelService.update_panel(
+                    panel_id=existing_panel.id,
+                    message_id=message.id,
+                    embed_json=raw_json,
+                    custom_id=custom_id
+                )
+                await interaction.followup.send("Ticket Panel Updated!", ephemeral=True)
+                return
+            except discord.NotFound:
+                # Message was deleted, proceed to create new one
+                await ShopPanelService.delete_panel(existing_panel.message_id)
+
         message = await channel.send(embed=embed, view=view)
         asyncio.create_task(
             ShopPanelService.create_panel(
