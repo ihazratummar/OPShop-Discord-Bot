@@ -387,6 +387,7 @@ class TicketService:
             interaction: discord.Interaction,
             channel: discord.TextChannel,
             button_name: str,
+            button_emoji: str,
             raw_json
     ):
         from modules.tickets.ui import CustomTicketView
@@ -394,7 +395,7 @@ class TicketService:
         import secrets
         custom_id = secrets.token_hex(4)
 
-        view = CustomTicketView(button_name=button_name, custom_id=custom_id)
+        view = CustomTicketView(button_name=button_name, custom_id=custom_id, button_emoji= button_emoji)
         message = await channel.send(embed=embed, view=view)
         asyncio.create_task(
             ShopPanelService.create_panel(

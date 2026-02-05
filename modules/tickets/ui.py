@@ -451,12 +451,13 @@ class EmbedJsonModal(Modal):
     and returns a discord.Embed via callback.
     """
 
-    def __init__(self, title: str, channel: discord.TextChannel, button_name: str, on_success):
+    def __init__(self, title: str, channel: discord.TextChannel, button_name: str, button_emoji: str, on_success):
         super().__init__(title=title)
 
         self.on_success = on_success  # async callback(embed, interaction, channel, button_name, raw_json)
         self.button_name = button_name
         self.channel = channel
+        self.button_emoji = button_emoji
 
         self.json_input = TextInput(
             label="Discohook Embed JSON",
@@ -499,7 +500,7 @@ class EmbedJsonModal(Modal):
         embed = discord.Embed.from_dict(embed_data)
 
         try:
-            await self.on_success(embed, interaction, self.channel, self.button_name, raw_json)
+            await self.on_success(embed, interaction, self.channel, self.button_name, self.button_emoji,  raw_json)
         except Exception:
             logger.exception("Embed modal callback failed")
             await interaction.followup.send(
@@ -509,18 +510,19 @@ class EmbedJsonModal(Modal):
 
 
 class CustomTicketView(View):
-    def __init__(self, custom_id: str, button_name: str = "Create Ticket", ):
+    def __init__(self, custom_id: str, button_emoji: str = "🎟️",  button_name: str = "Create Ticket", ):
         super().__init__(timeout=None)
         self.button_name = button_name
         self.custom_id = custom_id
-        self.add_item(CustomTicketButton(label=self.button_name, custom_id=self.custom_id))
+        self.button_emoji = button_emoji
+        self.add_item(CustomTicketButton(label=self.button_name, custom_id=self.custom_id, button_emoji= self.button_emoji))
 
 
 class CustomTicketButton(Button):
-    def __init__(self, label: str, custom_id: str):
+    def __init__(self, label: str, custom_id: str,button_emoji: str):
         super().__init__(
             label=label,
-            emoji="<:logo:1467765480352907407>",
+            emoji= button_emoji,
             custom_id=f"custom_button_{custom_id}"
         )
 

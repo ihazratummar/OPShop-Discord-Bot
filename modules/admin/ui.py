@@ -311,10 +311,11 @@ class EmbedJsonModal(Modal):
 
 class ItemEmbedJsonModal(Modal):
     """Modal for pasting Discohook embed JSON when creating an item-specific panel."""
-    def __init__(self, item_id: str, channel: discord.TextChannel):
+    def __init__(self, item_id: str, channel: discord.TextChannel, button_emoji: str):
         super().__init__(title="Create Item Panel")
         self.item_id = item_id
         self.channel = channel
+        self.button_emoji = button_emoji
         
         self.json_input = TextInput(
             label="Discohook Embed JSON",
@@ -365,7 +366,7 @@ class ItemEmbedJsonModal(Modal):
             
             # Create embed and view
             embed = discord.Embed.from_dict(embed_data)
-            view = ItemOrderView(item_id=self.item_id)
+            view = ItemOrderView(item_id=self.item_id, button_emoji = self.button_emoji)
             
             # Post to channel
             message = await self.channel.send(embed=embed, view=view)

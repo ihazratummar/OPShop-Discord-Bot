@@ -1,10 +1,9 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from modules.shop.services import CategoryService
 
 from core.logger import setup_logger
-from modules.tickets.ui import CustomTicketView, TicketControlView
+from modules.tickets.ui import CustomTicketView
 
 logger = setup_logger("shop_cog")
 

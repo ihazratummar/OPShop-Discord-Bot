@@ -97,11 +97,11 @@ class AdminCog(commands.Cog):
                           description="Post a persistent Item Panel with custom embed - direct order button")
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(item_id="The Item for this panel", channel="The channel to post in")
-    async def item_post_panel(self, interaction: discord.Interaction, item_id: str, channel: discord.TextChannel):
+    async def item_post_panel(self, interaction: discord.Interaction, item_id: str, channel: discord.TextChannel, button_emoji: str):
         """Opens a modal for the user to paste embed JSON for an item panel."""
         from modules.admin.ui import ItemEmbedJsonModal
         
-        modal = ItemEmbedJsonModal(item_id=item_id, channel=channel)
+        modal = ItemEmbedJsonModal(item_id=item_id, channel=channel, button_emoji= button_emoji)
         await interaction.response.send_modal(modal)
 
     # Autocomplete for item_id

@@ -52,12 +52,13 @@ class TicketsCog(commands.Cog):
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(channel="Mention a channel where to post ticket", button_name="Button name of the ticket")
-    async def create_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, button_name: str):
+    async def create_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, button_name: str, emoji: str):
         from modules.tickets.services import TicketService
         modal = EmbedJsonModal(
             title="Ticket Creation",
             channel=channel,
             button_name=button_name,
+            button_emoji = emoji,
             on_success=TicketService.embed_json_modal_callback
         )
         await interaction.response.send_modal(modal)

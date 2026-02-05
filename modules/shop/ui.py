@@ -381,19 +381,21 @@ class OrderNowView(View):
 class ItemOrderView(View):
     """Persistent view with Order button for item-specific panels."""
 
-    def __init__(self, item_id: str):
+    def __init__(self, item_id: str, button_emoji: str = None):
         super().__init__(timeout=None)
         self.item_id = item_id
-        self.add_item(ItemOrderButton(item_id))
+        self.button_emoji = button_emoji
+        self.add_item(ItemOrderButton(item_id = item_id, button_emoji = self.button_emoji))
 
 
 class ItemOrderButton(Button):
     """Persistent Order button for item-specific panels - creates ticket directly."""
 
-    def __init__(self, item_id: str):
+    def __init__(self, item_id: str, button_emoji: str):
         super().__init__(
             label="🛒 Order Now",
             style=discord.ButtonStyle.green,
+            emoji= button_emoji,
             custom_id=f"item_order:{item_id}"
         )
         self.item_id = item_id
@@ -579,7 +581,7 @@ class EphemeralItemView(View):
         self.root_category_id = root_category_id
         self.category_path = category_path
 
-    @discord.ui.button(label="🛒 Buy Now", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="Buy Now", style=discord.ButtonStyle.green)
     async def buy_now(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("🎫 Creating your order...", ephemeral=True)
         try:
