@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import uuid
@@ -9,10 +10,12 @@ from discord.ui import View, Button, TextInput, Modal
 from typing_extensions import override
 
 from core.config import settings
+from core.constant import Emoji
 from core.database import Database, logger
 from modules.economy.models import Transaction
 from modules.economy.services import TransactionService, EconomyService
 from modules.guild.service import GuildSettingService
+from modules.reputation.service import ReputationService
 from modules.shop.services import ItemService
 from modules.tickets.models import TicketSettingsModel, Ticket
 from modules.tickets.services import TicketService
@@ -293,29 +296,41 @@ class TicketControlView(View):
             item_name=item.name if item else "Custom Order",
             performed_by=interaction.user.id
         )
-        await TransactionService.log_transaction(txn)
+        asyncio.create_task(TransactionService.log_transaction(txn))
 
         # 3.5 Award Rewards (Tokens & XP)
         if item:
             # Tokens
-            if item.token_reward > 0:
-                await EconomyService.modify_tokens(
-                    ticket.user_id,
-                    item.token_reward,
-                    f"Reward for purchasing {item.name}",
-                    interaction.user.id
-                )
-                await interaction.channel.send(f"🎉 User rewarded **{item.token_reward}** Tokens!")
+            ticket_user = interaction.guild.get_member(ticket.user_id)
+            tasks = []
 
-            # XP (Price / 10)
-            if item.price > 0:
-                xp_amount = int(item.price / 10)
-                if xp_amount > 0:
-                    result = await XPService.add_xp(ticket.user_id, xp_amount, "purchase")
-                    msg = f"✨ User earned **{xp_amount} XP**!"
-                    if result['leveled_up']:
-                        msg += f"\n🆙 **LEVEL UP!** Now Level **{result['new_level']}**!"
-                    await interaction.channel.send(msg)
+            if item.token_reward > 0:
+                tasks.append(
+                    EconomyService.modify_tokens(
+                        ticket.user_id,
+                        item.token_reward,
+                        f"Reward for purchasing {item.name}",
+                        interaction.user.id
+                    )
+                )
+                tasks.append(
+                    interaction.channel.send(
+                        f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {Emoji.SHOP_TOKEN.value} Tokens!")
+                )
+
+                tasks.append(
+                    ReputationService.add_rep(
+                        user_id=interaction.user.id,
+                        guild_id=interaction.guild_id,
+                        reputation_amount=1
+                    )
+                )
+                tasks.append(
+                    interaction.channel.send(
+                        f"{interaction.user.mention} has earned +1 <a:bluestar:1468261614200422471>.")
+                )
+                await asyncio.gather(*tasks, return_exceptions=True)
+
 
         # 4. Close Ticket
         await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
