@@ -361,7 +361,7 @@ class ItemEmbedJsonModal(Modal):
 
             ## Validate Emoji
 
-            emoji = GuildSettingService.is_custom_discord_emoji(self.button_emoji)
+            emoji = GuildSettingService.is_custom_discord_emoji(self.button_emoji, guild=interaction.guild)
             if not emoji:
                 await interaction.followup.send(f"❌ `{self.button_emoji}` is not a valid emoji.", ephemeral=True)
                 return

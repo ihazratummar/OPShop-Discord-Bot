@@ -21,7 +21,9 @@ class ReputationService:
         if message.author.bot:
             return
 
-        if not message.content.lower().startswith("+rep"):
+        content = message.content.lower()
+
+        if "+rep" not in content.split():
             return
 
         if message.channel.name.lower() != "trusted-feedback":

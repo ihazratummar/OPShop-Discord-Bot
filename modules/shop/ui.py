@@ -443,11 +443,8 @@ class ItemOrderButton(Button):
                 if item.image_url:
                     embed.set_thumbnail(url=item.image_url)
 
-                shop_token = GuildSettingService.is_custom_discord_emoji(Emoji.SHOP_TOKEN.value)
-                if not shop_token:
-                    shop_token = "🪙"
 
-                embed.add_field(name="Price", value=f"{item.price:,.0f} {shop_token}", inline=True)
+                embed.add_field(name="Price", value=f"{item.price:,.0f} {Emoji.SHOP_TOKEN.value}", inline=True)
                 embed.add_field(name="Category", value=category_path, inline=True)
 
                 guild_setting = await GuildSettingService.get_guild_settings(interaction.guild)
