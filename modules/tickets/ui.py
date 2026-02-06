@@ -313,9 +313,10 @@ class TicketControlView(View):
                         interaction.user.id
                     )
                 )
+                emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild= interaction.guild)
                 tasks.append(
                     interaction.channel.send(
-                        f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {Emoji.SHOP_TOKEN.value} Tokens!")
+                        f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {emoji if emoji else "🪙"} Tokens!")
                 )
 
                 tasks.append(

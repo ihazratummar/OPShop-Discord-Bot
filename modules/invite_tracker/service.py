@@ -2,6 +2,7 @@ import datetime
 
 import discord
 
+from core.constant import Emoji
 from core.database import Database, logger
 from modules.economy.models import Transaction
 from modules.economy.services import EconomyService, TransactionService
@@ -12,7 +13,6 @@ from modules.xp.services import XPService
 
 
 class InviteTrackerService:
-
     cache = {}
 
     @staticmethod
@@ -37,16 +37,16 @@ class InviteTrackerService:
                     "code": invite.code
                 },
                 {
-                    "$set":{
+                    "$set": {
                         "uses": invite.uses,
                         "inviter_id": invite.inviter.id if invite.inviter else None
                     }
                 },
-                upsert= True
+                upsert=True
             )
 
         InviteTrackerService.cache[guild.id] = {
-            invite.code : invite.uses
+            invite.code: invite.uses
             for invite in invites
         }
 
@@ -69,24 +69,26 @@ class InviteTrackerService:
             return
 
         invite_join = InviteJoins(
-            user_id= member.id,
-            inviter_id= inviter.id,
+            user_id=member.id,
+            inviter_id=inviter.id,
             guild_id=guild.id,
-            timestamp = datetime.datetime.now()
+            timestamp=datetime.datetime.now()
         )
         await Database.invite_joins().insert_one(invite_join.to_mongo())
 
         seller_role = await GuildSettingService.get_seller_role(guild=guild)
 
-
         if seller_role in inviter.roles:
-            reward_message = f"Earned +1 reputation!"
-            await  ReputationService.add_rep(user_id= inviter.id, guild_id= guild.id)
+            emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
+            reward_message = f"{emoji if emoji else "🔮"} +1 reputation!"
+            await  ReputationService.add_rep(user_id=inviter.id, guild_id=guild.id)
         else:
-            reward_message = f"Earned 10 Shop Tokens"
-            await EconomyService.modify_tokens(user_id= inviter.id, amount= 10, reason="Invite Reward", actor_id=inviter.id)
+            emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
+            reward_message = f"{emoji if emoji else "🪙"} 10 Shop Tokens"
+            await EconomyService.modify_tokens(user_id=inviter.id, amount=10, reason="Invite Reward",
+                                               actor_id=inviter.id)
 
-        await XPService.add_xp(user_id= inviter.id, amount= 50, source= "Invite reward")
+        await XPService.add_xp(user_id=inviter.id, amount=50, source="Invite reward")
 
         logger.warning("Reached invite log section")
 
@@ -124,18 +126,15 @@ class InviteTrackerService:
 
         embed.add_field(
             name="Inviter Total",
-            value=f"Total**{count}** invites",
-            inline= True
+            value=f"Total **{count}** invites",
+            inline=True
         )
 
         if reward_message:
             embed.add_field(
                 name="Invite Reward",
                 value=reward_message,
-                inline= True
+                inline=True
             )
 
         await log_channel.send(embed=embed)
-
-
-

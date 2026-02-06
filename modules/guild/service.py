@@ -36,12 +36,19 @@ class GuildSettingService:
 
     @staticmethod
     def is_custom_discord_emoji(value: str, guild: discord.Guild) -> bool:
-
         match = CUSTOM_EMOJI_REGEX.match(value)
         if not match:
             return False
         emoji_id = int(match.group(1))
         return guild.get_emoji(emoji_id) is not None
+
+
+    @staticmethod
+    def get_server_emoji(emoji_id: int, guild: discord.Guild) -> discord.Emoji | None:
+        emoji = guild.get_emoji(emoji_id)
+        if emoji:
+            return emoji
+        return None
 
 
 

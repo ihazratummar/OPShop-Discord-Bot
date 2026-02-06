@@ -443,8 +443,8 @@ class ItemOrderButton(Button):
                 if item.image_url:
                     embed.set_thumbnail(url=item.image_url)
 
-
-                embed.add_field(name="Price", value=f"{item.price:,.0f} {Emoji.SHOP_TOKEN.value}", inline=True)
+                emoji = GuildSettingService.get_server_emoji(int(Emoji.SHOP_TOKEN.value), guild= interaction.guild)
+                embed.add_field(name="Price", value=f"{item.price:,.0f} {emoji if emoji else "🪙"}", inline=True)
                 embed.add_field(name="Category", value=category_path, inline=True)
 
                 guild_setting = await GuildSettingService.get_guild_settings(interaction.guild)
