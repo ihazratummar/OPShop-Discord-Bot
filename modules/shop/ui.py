@@ -381,19 +381,20 @@ class OrderNowView(View):
 class ItemOrderView(View):
     """Persistent view with Order button for item-specific panels."""
 
-    def __init__(self, item_id: str, button_emoji: str = None):
+    def __init__(self, item_id: str, button_name : str = None,  button_emoji: str = None):
         super().__init__(timeout=None)
         self.item_id = item_id
         self.button_emoji = button_emoji
-        self.add_item(ItemOrderButton(item_id = item_id, button_emoji = self.button_emoji))
+        self.button_name = button_name
+        self.add_item(ItemOrderButton(item_id = item_id, button_emoji = self.button_emoji, button_name = self.button_name))
 
 
 class ItemOrderButton(Button):
     """Persistent Order button for item-specific panels - creates ticket directly."""
 
-    def __init__(self, item_id: str, button_emoji: str):
+    def __init__(self, item_id: str, button_emoji: str, button_name: str):
         super().__init__(
-            label="Order Now",
+            label=button_name,
             style=discord.ButtonStyle.green,
             emoji= button_emoji,
             custom_id=f"item_order:{item_id}"

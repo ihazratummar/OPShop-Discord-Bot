@@ -1,5 +1,7 @@
 import discord
 from discord.ui import View, Modal, TextInput, Select, Button
+
+from modules.guild.service import GuildSettingService
 from modules.shop.services import CategoryService, ItemService, logger
 from modules.shop.models import Category, Item
 import json
@@ -331,11 +333,12 @@ class EmbedJsonModal(Modal):
 
 class ItemEmbedJsonModal(Modal):
     """Modal for pasting Discohook embed JSON when creating an item-specific panel."""
-    def __init__(self, item_id: str, channel: discord.TextChannel, button_emoji: str):
+    def __init__(self, item_id: str, channel: discord.TextChannel, button_emoji: str, button_name: str):
         super().__init__(title="Create Item Panel")
         self.item_id = item_id
         self.channel = channel
         self.button_emoji = button_emoji
+        self.button_name = button_name
         
         self.json_input = TextInput(
             label="Discohook Embed JSON",
@@ -355,6 +358,14 @@ class ItemEmbedJsonModal(Modal):
         await interaction.response.defer(ephemeral=True)
         
         try:
+
+            ## Validate Emoji
+
+            emoji = GuildSettingService.is_custom_discord_emoji(self.button_emoji)
+            if not emoji:
+                await interaction.followup.send(f"❌ `{self.button_emoji}` is not a valid emoji.", ephemeral=True)
+                return
+
             # Validate item exists
             item = await ItemService.get_item(self.item_id)
             if not item:
@@ -386,7 +397,7 @@ class ItemEmbedJsonModal(Modal):
             
             # Create embed and view
             embed = discord.Embed.from_dict(embed_data)
-            view = ItemOrderView(item_id=self.item_id, button_emoji = self.button_emoji)
+            view = ItemOrderView(item_id=self.item_id, button_emoji = self.button_emoji, button_name = self.button_name)
 
             # Check for existing panel
             existing_panel = await ShopPanelService.get_panel_by_channel(self.channel.id, "item")

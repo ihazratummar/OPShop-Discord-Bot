@@ -1,8 +1,10 @@
 import discord
-
+import re
 from core.database import Database
 from modules.guild.model import GuildSettings
 
+
+CUSTOM_EMOJI_REGEX = re.compile(r'^<a?:\w{2,32}:\d{17,20}>$')
 
 class GuildSettingService:
 
@@ -26,6 +28,10 @@ class GuildSettingService:
                 return guild.get_role(seller_role_id)
         return None
 
+
+    @staticmethod
+    def is_custom_discord_emoji(value: str) -> bool:
+        return bool(CUSTOM_EMOJI_REGEX.match(value))
 
 
 
