@@ -18,10 +18,9 @@ class EconomyCog(commands.Cog):
     async def balance_command(self, interaction: discord.Interaction, user: discord.User = None):
         target = user or interaction.user
         try:
-            credits, tokens = await EconomyService.get_balances(target.id)
+            tokens = await EconomyService.get_balances(target.id)
             
             embed = discord.Embed(title=f"💰 Balance: {target.display_name}", color=discord.Color.green())
-            embed.add_field(name="Credits", value=f"{credits:,.2f}", inline=True)
             embed.add_field(name="Shop Tokens", value=f"{tokens:,}", inline=True)
             if target.avatar:
                 embed.set_thumbnail(url=target.avatar.url)
@@ -71,11 +70,11 @@ class EconomyCog(commands.Cog):
             interaction.guild
         )
 
-    @admin_group.command(name="remove-credits", description="Remove credits from a user")
+    @admin_group.command(name="remove-token", description="Remove credits from a user")
     @app_commands.checks.has_permissions(administrator=True)
-    async def remove_credits(self, interaction: discord.Interaction, user: discord.User, amount: float, reason: str = "Admin Fine"):
+    async def remove_token(self, interaction: discord.Interaction, user: discord.User, amount: int, reason: str = "Admin Fine"):
         try:
-            await EconomyService.modify_credits(user.id, -amount, reason, interaction.user.id)
+            await EconomyService.modify_tokens(user.id, -amount, reason, interaction.user.id)
             await interaction.response.send_message(f"Removed **{amount}** credits from {user.mention}.", ephemeral=True)
 
             await AuditLogService.log_action(

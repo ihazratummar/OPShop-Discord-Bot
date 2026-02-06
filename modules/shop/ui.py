@@ -2,6 +2,7 @@ import discord
 from discord.ui import View, Select, Button
 from typing import List
 
+from core.constant import Emoji
 from core.database import Database
 from modules.guild.service import GuildSettingService
 from modules.shop.models import Category, Item
@@ -441,7 +442,12 @@ class ItemOrderButton(Button):
                 )
                 if item.image_url:
                     embed.set_thumbnail(url=item.image_url)
-                embed.add_field(name="Price", value=f"{item.price:,.0f} {item.currency}", inline=True)
+
+                shop_token = GuildSettingService.is_custom_discord_emoji(Emoji.SHOP_TOKEN.value)
+                if not shop_token:
+                    shop_token = "🪙"
+
+                embed.add_field(name="Price", value=f"{item.price:,.0f} {shop_token}", inline=True)
                 embed.add_field(name="Category", value=category_path, inline=True)
 
                 guild_setting = await GuildSettingService.get_guild_settings(interaction.guild)

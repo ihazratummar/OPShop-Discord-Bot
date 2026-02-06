@@ -18,7 +18,7 @@ class RedeemCog(commands.Cog):
         
         embed.add_field(
             name="💱 Currency Exchange", 
-            value="Convert **1 Token** → **1,000 Credits**\nCommand: `/redeem credits <amount>`", 
+            value="Convert **100 Token** → **$10 💰**\nCommand: `/redeem credits <amount>`",
             inline=False
         )
         
@@ -32,8 +32,8 @@ class RedeemCog(commands.Cog):
 
     @redeem_group.command(name="credits", description="Exchange Tokens for Credits (1 Token = 1000 Credits)")
     async def redeem_credits(self, interaction: discord.Interaction, token_amount: int):
-        if token_amount < 1:
-            await interaction.response.send_message("Must redeem at least 1 token.", ephemeral=True)
+        if token_amount < 10:
+            await interaction.response.send_message("Must redeem at least 10 Shop Token.", ephemeral=True)
             return
 
         try:

@@ -389,6 +389,10 @@ class TicketControlView(View):
                 read_message_history=True
             )
 
+        overwrites[interaction.guild.default_role] = discord.PermissionOverwrite(
+            view_channel=False,
+        )
+
         overwrites[interaction.user] = discord.PermissionOverwrite(
             view_channel=True,
             send_messages=True,
