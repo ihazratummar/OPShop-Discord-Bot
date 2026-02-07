@@ -31,7 +31,6 @@ class ReputationService:
         guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
 
         if not guild_settings.rep_channel or message.channel.id != guild_settings.rep_channel:
-            await message.reply("You must be in a trusted feedback channel.")
             return
 
         mentions = message.mentions
@@ -110,7 +109,9 @@ class ReputationService:
                 message=review_text
             )
         )
-        await message.channel.send(f"{message.author.mention} has earned {Emoji.SHOP_TOKEN.value} 10 Shop Tokens")
+        emoji = GuildSettingService.get_server_emoji(guild = guild, emoji_id= Emoji.SHOP_TOKEN.value)
+
+        await message.channel.send(f"{message.author.mention} has earned {emoji if emoji else  "🪙"} 10 Shop Tokens")
         await message.channel.send(f"{target.mention} has earned +1 <a:bluestar:1468261614200422471>.")
 
     @staticmethod
