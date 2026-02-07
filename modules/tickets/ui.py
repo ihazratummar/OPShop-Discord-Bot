@@ -522,31 +522,47 @@ class EmbedJsonModal(Modal):
             await interaction.followup.send(f"❌ Invalid JSON: `{e}`", ephemeral=True)
             return
 
-        embed_data = None
+        embeds = []
+        content = None
 
         if isinstance(data, dict):
-            if isinstance(data.get("embeds"), list) and data["embeds"]:
-                embed_data = data["embeds"][0]
+            content = data.get("content")
+            if "embeds" in data and isinstance(data["embeds"], list):
+                for emp_data in data["embeds"]:
+                    try:
+                        embeds.append(discord.Embed.from_dict(emp_data))
+                    except Exception:
+                        pass # Ignore invalid embeds
             elif "title" in data or "description" in data:
-                embed_data = data
-        elif isinstance(data, list) and data:
-            embed_data = data[0]
+                # Single embed object at root
+                embeds.append(discord.Embed.from_dict(data))
+        elif isinstance(data, list):
+             # List of embeds?
+             for emp_data in data:
+                 if isinstance(emp_data, dict):
+                     try:
+                        embeds.append(discord.Embed.from_dict(emp_data))
+                     except Exception:
+                        pass
 
-        if not embed_data:
+        if not embeds and not content:
             await interaction.followup.send(
-                "❌ No valid embed found.",
+                "❌ No valid content or embeds found in JSON.",
                 ephemeral=True
             )
             return
-
-        embed = discord.Embed.from_dict(embed_data)
+        
+        # Limit to 10 embeds (Discord limit)
+        if len(embeds) > 10:
+            embeds = embeds[:10]
 
         try:
-            await self.on_success(embed, interaction, self.channel, self.button_name, self.button_emoji,  raw_json)
+            # Updated signature: embeds (list), content (str)
+            await self.on_success(embeds, content, interaction, self.channel, self.button_name, self.button_emoji,  raw_json)
         except Exception:
             logger.exception("Embed modal callback failed")
             await interaction.followup.send(
-                "❌ Failed while processing embed.",
+                "❌ Failed while processing embed callback.",
                 ephemeral=True
             )
 

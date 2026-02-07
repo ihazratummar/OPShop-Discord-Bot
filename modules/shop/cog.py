@@ -21,15 +21,44 @@ class ShopCog(commands.Cog):
         item_count = 0
         custom_panel = 0
         
+        from modules.shop.services import ItemService
+        
+        # Pre-fetch items for directory views
+        # optimize: fetch once instead of per directory panel?
+        # Yes, directory shows all active items.
+        all_active_items = await ItemService.get_all_items(active_only=True)
+        # Sort as we do in creation
+        all_active_items.sort(key=lambda x: x.id, reverse=True)
+        
         for panel in panels:
             # Check if this is an item panel (category_id starts with "item:")
             if panel.type == "item":
-                item_id = panel.category_id.replace("item:", "")
-                view = ItemOrderView(item_id=item_id)
-                item_count += 1
+                # Some legacy panels might not have type set correctly but usually they do
+                # If category_id starts with item:, it's an item panel
+                if panel.category_id and panel.category_id.startswith("item:"):
+                     item_id = panel.category_id.replace("item:", "")
+                     view = ItemOrderView(item_id=item_id)
+                     item_count += 1
+                else:
+                    # Fallback or error?
+                    logger.warning(f"Panel {panel.id} has type 'item' but invalid category_id: {panel.category_id}")
+                    continue
+
             elif panel.type == "custom":
                 view = CustomTicketView(custom_id=panel.custom_id)
                 custom_panel += 1
+
+            elif panel.type == "directory":
+                # Register with REAL data extracted from DB
+                from modules.shop.ui import ItemDirectoryView
+                if all_active_items:
+                    view = ItemDirectoryView(directory_items=all_active_items)
+                else:
+                    # Fallback if no items found
+                    from types import SimpleNamespace
+                    dummy_item = SimpleNamespace(name="No active items", id="0")
+                    view = ItemDirectoryView(directory_items=[dummy_item])
+                
             else:
                 view = OrderNowView(category_id=panel.category_id)
                 category_count += 1

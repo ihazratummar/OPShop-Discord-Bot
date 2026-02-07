@@ -260,27 +260,37 @@ class EmbedJsonModal(Modal):
                 )
                 return
 
-            # Extract embed data (Discohook formats)
-            embed_data = None
+            # Extract content and embeds
+            embeds = []
+            content = None
 
             if isinstance(data, dict):
-                if isinstance(data.get("embeds"), list) and data["embeds"]:
-                    embed_data = data["embeds"][0]
+                content = data.get("content")
+                if "embeds" in data and isinstance(data["embeds"], list):
+                     for emp_data in data["embeds"]:
+                         try:
+                             embeds.append(discord.Embed.from_dict(emp_data))
+                         except Exception:
+                             pass
                 elif "title" in data or "description" in data:
-                    embed_data = data
+                     embeds.append(discord.Embed.from_dict(data))
+            elif isinstance(data, list):
+                for emp_data in data:
+                    if isinstance(emp_data, dict):
+                        try:
+                            embeds.append(discord.Embed.from_dict(emp_data))
+                        except Exception:
+                            pass
 
-            elif isinstance(data, list) and data:
-                embed_data = data[0]
-
-            if not embed_data:
+            if not embeds and not content:
                 await interaction.followup.send(
-                    "❌ No valid embed found. Ensure the JSON contains an embed with `title` or `description`.",
+                    "❌ No valid content or embeds found in JSON.",
                     ephemeral=True
                 )
                 return
-
-            # Create embed
-            embed = discord.Embed.from_dict(embed_data)
+            
+            if len(embeds) > 10:
+                embeds = embeds[:10]
 
             # Create view
             view = OrderNowView(category_id=self.category_id)
@@ -290,7 +300,7 @@ class EmbedJsonModal(Modal):
             if existing_panel:
                 try:
                     message = await self.channel.fetch_message(existing_panel.message_id)
-                    await message.edit(embed=embed, view=view)
+                    await message.edit(content=content, embeds=embeds, view=view)
                     await ShopPanelService.update_panel(
                         panel_id=existing_panel.id,
                         message_id=message.id,
@@ -306,7 +316,7 @@ class EmbedJsonModal(Modal):
                     await ShopPanelService.delete_panel(existing_panel.message_id)
 
             # Post panel
-            message = await self.channel.send(embed=embed, view=view)
+            message = await self.channel.send(content=content, embeds=embeds, view=view)
 
             # Persist panel
             await ShopPanelService.create_panel(
@@ -382,21 +392,35 @@ class ItemEmbedJsonModal(Modal):
                 return
             
             # Handle Discohook format
-            embed_data = None
-            if isinstance(data, dict):
-                if "embeds" in data and isinstance(data["embeds"], list) and len(data["embeds"]) > 0:
-                    embed_data = data["embeds"][0]
-                elif "title" in data or "description" in data:
-                    embed_data = data
-            elif isinstance(data, list) and len(data) > 0:
-                embed_data = data[0]
-                
-            if not embed_data:
-                await interaction.followup.send("❌ Could not find valid embed in JSON.", ephemeral=True)
-                return
+            embeds = []
+            content = None
             
-            # Create embed and view
-            embed = discord.Embed.from_dict(embed_data)
+            if isinstance(data, dict):
+                content = data.get("content")
+                if "embeds" in data and isinstance(data["embeds"], list):
+                    for emp_data in data["embeds"]:
+                        try:
+                            embeds.append(discord.Embed.from_dict(emp_data))
+                        except:
+                            pass
+                elif "title" in data or "description" in data:
+                    embeds.append(discord.Embed.from_dict(data))
+            elif isinstance(data, list):
+                for emp_data in data:
+                    if isinstance(emp_data, dict):
+                        try:
+                            embeds.append(discord.Embed.from_dict(emp_data))
+                        except:
+                            pass
+                            
+            if not embeds and not content:
+                await interaction.followup.send("❌ Could not find valid content or embeds in JSON.", ephemeral=True)
+                return
+
+            if len(embeds) > 10:
+                embeds = embeds[:10]
+            
+            # Create view
             view = ItemOrderView(item_id=self.item_id, button_emoji = self.button_emoji, button_name = self.button_name)
 
             # Check for existing panel
@@ -404,7 +428,7 @@ class ItemEmbedJsonModal(Modal):
             if existing_panel:
                 try:
                     message = await self.channel.fetch_message(existing_panel.message_id)
-                    await message.edit(embed=embed, view=view)
+                    await message.edit(content=content, embeds=embeds, view=view)
                     await ShopPanelService.update_panel(
                         panel_id=existing_panel.id,
                         message_id=message.id,
@@ -421,7 +445,7 @@ class ItemEmbedJsonModal(Modal):
 
             
             # Post to channel
-            message = await self.channel.send(embed=embed, view=view)
+            message = await self.channel.send(content=content, embeds=embeds, view=view)
             
             # Save panel to DB (using item_id in category_id field for simplicity, or we can add item_id field)
             await ShopPanelService.create_panel(

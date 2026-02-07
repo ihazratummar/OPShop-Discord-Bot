@@ -2,6 +2,8 @@ import time
 import discord
 import asyncio
 import re
+
+from core.constant import Emoji
 from core.database import Database
 from core.logger import setup_logger
 from modules.economy.services import EconomyService
@@ -53,8 +55,6 @@ class ReputationService:
 
         if not seller_role or seller_role not in target.roles:
             await message.reply(f"Only user with the {seller_role.name} role can receive reputation!")
-            await asyncio.sleep(3)
-            await message.channel.purge(limit=2)
             return
 
         review_text = message.content.replace("+rep", "")
@@ -70,6 +70,13 @@ class ReputationService:
             return_document=True
         )
         counter = rep_given_result.get("rep_given_counter", 1)
+
+        await EconomyService.modify_tokens(
+            user_id = message.author.id,
+            amount= 10,
+            reason="Reputation added",
+            actor_id=message.author.id,
+        )
 
         if counter >= 3:
             await Database.users().update_one(
@@ -104,7 +111,7 @@ class ReputationService:
                 message=review_text
             )
         )
-
+        await message.channel.send(f"{message.author.mention} has earned {Emoji.SHOP_TOKEN.value} 10 Shop Tokens")
         await message.channel.send(f"{target.mention} has earned +1 <a:bluestar:1468261614200422471>.")
 
     @staticmethod

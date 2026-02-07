@@ -63,6 +63,21 @@ class TicketsCog(commands.Cog):
         )
         await interaction.response.send_modal(modal)
 
+    @app_commands.command(name="create_directory", description="Create a directory of items")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(channel="Mention a channel where to post directory")
+    async def create_directory(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        from modules.tickets.services import TicketService
+        modal = EmbedJsonModal(
+            title="Directory Creation",
+            channel=channel,
+            button_name="Directory", # Dummy
+            button_emoji="📍", # Dummy
+            on_success=TicketService.directory_modal_callback
+        )
+        await interaction.response.send_modal(modal)
+
 
 
 

@@ -383,7 +383,8 @@ class TicketService:
 
     @staticmethod
     async def embed_json_modal_callback(
-            embed: discord.Embed,
+            embeds: List[discord.Embed],
+            content: str,
             interaction: discord.Interaction,
             channel: discord.TextChannel,
             button_name: str,
@@ -404,7 +405,7 @@ class TicketService:
         if existing_panel:
             try:
                 message = await channel.fetch_message(existing_panel.message_id)
-                await message.edit(embed=embed, view=view)
+                await message.edit(content=content, embeds=embeds, view=view)
                 
                 # Use generic update_panel
                 await ShopPanelService.update_panel(
@@ -419,7 +420,7 @@ class TicketService:
                 # Message was deleted, proceed to create new one
                 await ShopPanelService.delete_panel(existing_panel.message_id)
 
-        message = await channel.send(embed=embed, view=view)
+        message = await channel.send(content=content, embeds=embeds, view=view)
         asyncio.create_task(
             ShopPanelService.create_panel(
                 guild_id=interaction.guild.id,
@@ -432,3 +433,62 @@ class TicketService:
         )
 
         await interaction.followup.send("Ticket Created!", ephemeral=True)
+
+    @staticmethod
+    async def directory_modal_callback(
+            embeds: List[discord.Embed],
+            content: str,
+            interaction: discord.Interaction,
+            channel: discord.TextChannel,
+            button_name: str, # unused
+            button_emoji: str, # unused
+            raw_json
+    ):
+        from modules.shop.ui import ItemDirectoryView
+        from modules.shop.services_panels import ShopPanelService
+        from modules.shop.services import ItemService
+        
+        # Fetch active items directly from Item collection
+        items = await ItemService.get_all_items(active_only=True)
+        # Sort by newest (id desc) or name? User didn't specify, but newest is usually better for "directory" updates
+        # MongoDB _id is time-ordered.
+        items.sort(key=lambda x: x.id, reverse=True)
+        
+        if not items:
+             await interaction.followup.send("❌ Cannot create directory: No active items found in database.", ephemeral=True)
+             return
+
+        view = ItemDirectoryView(items)
+
+        # Check for existing directory panel
+        existing_panel = await ShopPanelService.get_panel_by_channel(channel.id, "directory")
+
+        if existing_panel:
+            try:
+                message = await channel.fetch_message(existing_panel.message_id)
+                await message.edit(content=content, embeds=embeds, view=view)
+                
+                await ShopPanelService.update_panel(
+                    panel_id=existing_panel.id,
+                    message_id=message.id,
+                    embed_json=raw_json
+                )
+                await interaction.followup.send("✅ Directory Panel Updated!", ephemeral=True)
+                return
+            except (discord.NotFound, discord.HTTPException):
+                # Message deleted
+                await ShopPanelService.delete_panel(existing_panel.message_id)
+
+        message = await channel.send(content=content, embeds=embeds, view=view)
+        asyncio.create_task(
+            ShopPanelService.create_panel(
+                guild_id=interaction.guild.id,
+                channel_id=channel.id,
+                message_id=message.id,
+                embed_json=raw_json,
+                _type="directory",
+                custom_id="directory"
+            )
+        )
+
+        await interaction.followup.send("✅ Directory Panel Created!", ephemeral=True)

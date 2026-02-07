@@ -639,3 +639,167 @@ class EphemeralItemView(View):
                 category_path=self.category_path
             )
             await view.refresh(interaction)
+
+
+# ========================================
+# Directory Components
+# ========================================
+
+class ItemLocationSelect(Select):
+    def __init__(self, directory_items: list):
+        # Discord Select max options = 25
+        # directory_items is a list of Item objects
+        from modules.shop.models import Item
+        self.items = directory_items
+        options = []
+        for item in directory_items[:25]:
+            # We use the item_id as value
+            options.append(
+                discord.SelectOption(
+                    label=item.name[:100], 
+                    value=str(item.id), 
+                    emoji="📍",
+                    description=f"Find: {item.name[:50]}"
+                )
+            )
+        
+        super().__init__(
+            placeholder="🔍 Select an item to find its channel...",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id="directory_select"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        # Defer immediately to allow multiple actions (edit + send)
+        await interaction.response.defer(ephemeral=True)
+        
+        # Reset the dropdown state by editing the message with the same view
+        # This clears the user's selection on the client side
+        await interaction.message.edit(view=self.view)
+
+        item_id = self.values[0]
+        
+        # 1. Get Item Name from ID
+        from modules.shop.services import ItemService
+        item = await ItemService.get_item(item_id)
+        
+        if not item:
+             await interaction.followup.send("❌ Item not found in database.", ephemeral=True)
+             return
+
+        # 2. Search for channel by Name
+        # Logic: Channel name should match Item name (slugified)
+        # Discord channels: lowercase, alphanumeric, dashes, underscores
+        import re
+        # Replace spaces with dashes
+        target_name = item.name.lower().replace(" ", "-")
+        # Remove any character that is not alphanumeric, dash, or underscore
+        target_name = re.sub(r'[^a-z0-9\-_]', '', target_name)
+        # Remove multiple dashes
+        target_name = re.sub(r'-+', '-', target_name)
+        # Strip leading/trailing dashes
+        target_name = target_name.strip("-")
+        
+        target_channel = discord.utils.get(interaction.guild.text_channels, name=target_name)
+        
+        # If exact match fails, try partial match (e.g. "tek-cave" in "🪙│tek-cave")
+        if not target_channel:
+             for channel in interaction.guild.text_channels:
+                 if target_name in channel.name:
+                     target_channel = channel
+                     break
+        
+        if target_channel:
+            view = discord.ui.View()
+            view.add_item(
+                discord.ui.Button(
+                    label=f"Create Ticket in #{target_channel.name}",
+                    url=f"https://discord.com/channels/{interaction.guild.id}/{target_channel.id}",
+                    emoji="🎟️"
+                )
+            )
+            await interaction.followup.send(
+                f"📍 Found **{item.name}** in {target_channel.mention}",
+                view=view,
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                f"❌ Channel **#{target_name}** not found.",
+                ephemeral=True
+            )
+
+class ItemDirectoryView(View):
+    def __init__(self, directory_items: list):
+        super().__init__(timeout=None)
+        self.all_items = directory_items
+        self.page = 0
+        self.per_page = 25
+        self.max_page = max(0, (len(self.all_items) - 1) // self.per_page)
+        
+        self.update_view()
+
+    def update_view(self):
+        self.clear_items()
+        
+        # Calculate slice
+        start = self.page * self.per_page
+        end = start + self.per_page
+        current_items = self.all_items[start:end]
+        
+        # Add Select Menu
+        if current_items:
+            self.add_item(ItemLocationSelect(current_items))
+        else:
+             # Should not happen if list is not empty, but if empty list passed...
+             pass
+
+        # Navigation Buttons
+        # Only show if there's more than one page
+        if self.max_page > 0:
+            prev_btn = discord.ui.Button(
+                style=discord.ButtonStyle.secondary,
+                label="Previous",
+                emoji="⬅️",
+                custom_id=f"dir_prev",
+                disabled=(self.page == 0)
+            )
+            prev_btn.callback = self.prev_page
+            self.add_item(prev_btn)
+            
+            # Indicator
+            indicator = discord.ui.Button(
+                style=discord.ButtonStyle.secondary,
+                label=f"Page {self.page + 1}/{self.max_page + 1}",
+                disabled=True,
+                custom_id="dir_indicator"
+            )
+            self.add_item(indicator)
+
+            next_btn = discord.ui.Button(
+                style=discord.ButtonStyle.secondary,
+                label="Next",
+                emoji="➡️",
+                custom_id=f"dir_next",
+                disabled=(self.page == self.max_page)
+            )
+            next_btn.callback = self.next_page
+            self.add_item(next_btn)
+
+    async def prev_page(self, interaction: discord.Interaction):
+        if self.page > 0:
+            self.page -= 1
+            self.update_view()
+            await interaction.response.edit_message(view=self)
+        else:
+             await interaction.response.defer()
+
+    async def next_page(self, interaction: discord.Interaction):
+        if self.page < self.max_page:
+            self.page += 1
+            self.update_view()
+            await interaction.response.edit_message(view=self)
+        else:
+             await interaction.response.defer()
