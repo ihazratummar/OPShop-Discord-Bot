@@ -76,4 +76,8 @@ class Database:
     def guild_settings(cls):
         return cls.get_db().guild_settings
 
+    @classmethod
+    def reputations_tier(cls):
+        return cls.get_db().reputations_tier
+
 

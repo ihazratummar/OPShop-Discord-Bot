@@ -322,7 +322,7 @@ class TicketControlView(View):
                 tasks.append(
                     ReputationService.add_rep(
                         user_id=interaction.user.id,
-                        guild_id=interaction.guild_id,
+                        guild = interaction.guild,
                         reputation_amount=1
                     )
                 )

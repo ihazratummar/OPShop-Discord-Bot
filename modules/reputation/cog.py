@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from core.database import Database
 from modules.guild.service import GuildSettingService
 from modules.reputation.service import ReputationService
 
@@ -41,16 +42,66 @@ class Reputation(commands.Cog):
         await ReputationService.add_reputation(
             from_user_id=interaction.user.id,
             target_user_id=member.id,
-            guild_id=interaction.guild.id,
-            reputation_amount= reputation,
+            guild=interaction.guild,
+            reputation_amount=reputation,
             is_admin=True
         )
         await interaction.followup.send(
             f"⭐️ +{reputation} rep added to {member.name}'s profile!", ephemeral=True
         )
 
-## TODO : Add Rep roles
+    rep_role = app_commands.Group(
+        name="rep_role",
+        description="Reputation role",
+        guild_only=True,
+        default_permissions= discord.Permissions(administrator=True)
+    )
 
+    @app_commands.command(name="rep_channel", description="Add reputation command channel")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(channel="Mention a channel where you want the reputation to work")
+    async def rep_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await interaction.response.defer(ephemeral=True)
+        result = await Database.guild_settings().update_one(
+            {"guild_id": interaction.guild.id},
+            {"$set": {"rep_channel": channel.id}},
+            upsert=True
+        )
+
+        if result.acknowledged:
+            await interaction.followup.send(f"{channel.mention} reputation channel updated.", ephemeral=True)
+            return
+
+        await interaction.followup.send(f"Failed to add reputation to {channel.mention}", ephemeral=True)
+
+
+    @rep_role.command(name="add", description="Add reputation to a user")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def add_rep_role_command(self, interaction: discord.Interaction, role: discord.Role, reputation_threshold: app_commands.Range[int, 1, 10000]):
+        await interaction.response.defer(ephemeral=True)
+
+        result = await ReputationService.save_reputation_tier(role_id= role.id, reputation_amount= reputation_threshold, guild_id= interaction.guild_id)
+        if result:
+            await interaction.followup.send(f"**{role.name}** Role added for +rep level", ephemeral=True)
+            return
+        await interaction.followup.send(f"Failed to add reputation to {role.name}", ephemeral=True)
+
+
+    @rep_role.command(name="set_logs_channel", description="Set the reputation logs channel")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def set_rep_log_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await interaction.response.defer(ephemeral=True)
+        result = await Database.guild_settings().update_one(
+            {"guild_id": interaction.guild.id},
+            {"$set": {"rep_log_channel": channel.id}},
+            upsert=True
+        )
+        if result.acknowledged:
+            await interaction.followup.send(f"{channel.mention} reputation logs channel updated.", ephemeral=True)
+
+
+ ## TODO : Add panel for levels
 
 async def setup(bot):
     await bot.add_cog(Reputation(bot))

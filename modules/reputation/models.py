@@ -11,3 +11,9 @@ class ReputationLogs(MongoModel):
     message: Optional[str] = None
     timestamp: Optional[int] = Field(None, description="Timestamp")
     guild_id: int = Field(...)
+
+
+class ReputationTier(MongoModel):
+    guild_id: int = Field(..., description="Guild ID")
+    role_id: int = Field(..., description="Role ID")
+    threshold: int = Field(..., description="Threshold")

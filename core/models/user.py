@@ -1,6 +1,9 @@
+from typing import Optional, List
+
 from pydantic import Field
+
 from core.models.base import MongoModel
-from typing import List
+
 
 class User(MongoModel):
     discord_id: int = Field(..., description="Discord User ID")
@@ -14,6 +17,9 @@ class User(MongoModel):
     level: int = Field(default=1, ge=1)
     reputations: int = Field(default=0)
     rep_given_counter : int = Field(default=0, ge=0)
+
+    ## Level
+    reputation_tier_role: Optional[List[int]] = None
     
     # Check
     is_blacklisted: bool = Field(default=False)

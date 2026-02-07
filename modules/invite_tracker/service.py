@@ -81,7 +81,7 @@ class InviteTrackerService:
         if seller_role in inviter.roles:
             emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
             reward_message = f"{emoji if emoji else "🔮"} +1 reputation!"
-            await  ReputationService.add_rep(user_id=inviter.id, guild_id=guild.id)
+            await  ReputationService.add_rep(user_id=inviter.id, guild=guild)
         else:
             emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
             reward_message = f"{emoji if emoji else "🪙"} 10 Shop Tokens"
