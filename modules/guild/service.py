@@ -4,7 +4,7 @@ from core.database import Database
 from modules.guild.model import GuildSettings
 
 
-CUSTOM_EMOJI_REGEX = re.compile(r'^<a?:\w{2,32}:\d{17,20}>$')
+CUSTOM_EMOJI_REGEX = re.compile(r'^<a?:\w{2,32}:(\d{17,20})>$')
 
 class GuildSettingService:
 
@@ -38,7 +38,13 @@ class GuildSettingService:
     def is_custom_discord_emoji(value: str, guild: discord.Guild) -> bool:
         match = CUSTOM_EMOJI_REGEX.match(value)
         if not match:
+            # It might be a standard unicode emoji which doesn't match this regex
+            # But the logic below assumes custom emoji validation.
+            # If standard emoji, this returns False? 
+            # If it's a standard emoji, guild.get_emoji won't work anyway. 
+            # Logic seems to mandate Custom Emoji?
             return False
+            
         emoji_id = int(match.group(1))
         return guild.get_emoji(emoji_id) is not None
 
