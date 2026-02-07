@@ -1,7 +1,7 @@
 import time
 import discord
 import asyncio
-
+import re
 from core.database import Database
 from core.logger import setup_logger
 from modules.economy.services import EconomyService
@@ -23,7 +23,7 @@ class ReputationService:
 
         content = message.content.lower()
 
-        if "+rep" not in content.split():
+        if not re.search(r"\+\s*rep\b", content, re.IGNORECASE):
             return
 
         guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
