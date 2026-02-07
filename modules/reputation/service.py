@@ -32,7 +32,6 @@ class ReputationService:
 
         if not guild_settings.rep_channel or message.channel.id != guild_settings.rep_channel:
             await message.reply("You must be in a trusted feedback channel.")
-            await message.delete(delay=5)
             return
 
         mentions = message.mentions
