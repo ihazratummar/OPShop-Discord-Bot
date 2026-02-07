@@ -252,11 +252,9 @@ class TicketControlView(View):
         )
         claim_ticket_button.callback = self.claim_ticket_btn
 
-        if not self.is_custom_ticket:
-            self.add_item(complete_button)
+        self.add_item(complete_button)
 
-        if self.is_item_ticket:
-            self.add_item(claim_ticket_button)
+        self.add_item(claim_ticket_button)
 
         self.add_item(close_button)
 
@@ -283,54 +281,78 @@ class TicketControlView(View):
             return
 
         # 2. Get Item details if exists
-        item = None
-        if ticket.related_item_id:
-            item = await ItemService.get_item(ticket.related_item_id)
+        # item = None
+        # if ticket.related_item_id:
+        #     item = await ItemService.get_item(ticket.related_item_id)
 
         # 3. Log Transaction
-        txn = Transaction(
-            user_id=ticket.user_id,
-            type='purchase',
-            amount_tokens=item.price if item and item.currency == 'tokens' else 0,
-            item_id=str(item.id) if item else None,
-            item_name=item.name if item else "Custom Order",
-            performed_by=interaction.user.id
-        )
-        asyncio.create_task(TransactionService.log_transaction(txn))
+        # txn = Transaction(
+        #     user_id=ticket.user_id,
+        #     type='purchase',
+        #     amount_tokens=item.price if item and item.currency == 'tokens' else 0,
+        #     item_id=str(item.id) if item else None,
+        #     item_name=item.name if item else "Custom Order",
+        #     performed_by=interaction.user.id
+        # )
+        # asyncio.create_task(TransactionService.log_transaction(txn))
 
         # 3.5 Award Rewards (Tokens & XP)
-        if item:
-            # Tokens
-            ticket_user = interaction.guild.get_member(ticket.user_id)
-            tasks = []
+        # Tokens
+        ticket_user = interaction.guild.get_member(ticket.user_id)
 
-            if item.token_reward > 0:
-                tasks.append(
-                    EconomyService.modify_tokens(
-                        ticket.user_id,
-                        item.token_reward,
-                        f"Reward for purchasing {item.name}",
-                        interaction.user.id
-                    )
-                )
-                emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild= interaction.guild)
-                tasks.append(
-                    interaction.channel.send(
-                        f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {emoji if emoji else "🪙"} Tokens!")
-                )
 
-                tasks.append(
-                    ReputationService.add_rep(
-                        user_id=interaction.user.id,
-                        guild = interaction.guild,
-                        reputation_amount=1
-                    )
-                )
-                tasks.append(
-                    interaction.channel.send(
-                        f"{interaction.user.mention} has earned +1 <a:bluestar:1468261614200422471>.")
-                )
-                await asyncio.gather(*tasks, return_exceptions=True)
+        await EconomyService.modify_tokens(
+                ticket.user_id,
+                10,
+                f"Reward for purchasing",
+                interaction.user.id
+            )
+        emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=interaction.guild)
+        await interaction.channel.send(f"🎉 {ticket_user.mention} rewarded **10** {emoji if emoji else "🪙"} Tokens!")
+
+        await ReputationService.add_rep(
+                user_id=interaction.user.id,
+                guild=interaction.guild,
+                reputation_amount=1
+            )
+
+        await interaction.channel.send(
+                f"{interaction.user.mention} has earned +1 <a:bluestar:1468261614200422471>.")
+
+
+        # # 3.5 Award Rewards (Tokens & XP)
+        # if item:
+        #     # Tokens
+        #     ticket_user = interaction.guild.get_member(ticket.user_id)
+        #     tasks = []
+        #
+        #     if item.token_reward > 0:
+        #         tasks.append(
+        #             EconomyService.modify_tokens(
+        #                 ticket.user_id,
+        #                 item.token_reward,
+        #                 f"Reward for purchasing {item.name}",
+        #                 interaction.user.id
+        #             )
+        #         )
+        #         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild= interaction.guild)
+        #         tasks.append(
+        #             interaction.channel.send(
+        #                 f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {emoji if emoji else "🪙"} Tokens!")
+        #         )
+        #
+        #         tasks.append(
+        #             ReputationService.add_rep(
+        #                 user_id=interaction.user.id,
+        #                 guild = interaction.guild,
+        #                 reputation_amount=1
+        #             )
+        #         )
+        #         tasks.append(
+        #             interaction.channel.send(
+        #                 f"{interaction.user.mention} has earned +1 <a:bluestar:1468261614200422471>.")
+        #         )
+        #         await asyncio.gather(*tasks, return_exceptions=True)
 
 
         # 4. Close Ticket
@@ -566,7 +588,22 @@ class CustomTicketButton(Button):
             channel = interaction.guild.get_channel(ticket.channel_id)
             view = TicketControlView(str(ticket.id), is_custom_ticket=True)
             ticket_manager = await TicketService.get_ticket_manager_role(guild=interaction.guild)
-            message = await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", view=view)
+
+            embed = discord.Embed(
+                title="Ticket Created",
+                description=f"{interaction.user.mention} has created a ticket.",
+            )
+            embed.add_field(
+                name="Status",
+                value=f"{ticket.status}",
+                inline=True
+            )
+            embed.add_field(
+                name="Ticket ID",
+                value=f"{ticket.id}",
+            )
+
+            message = await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention}", embed= embed , view=view)
             await Database.tickets().update_one(
                 {"_id": ticket.id},
                 {"$set": {"message_id": message.id}},
