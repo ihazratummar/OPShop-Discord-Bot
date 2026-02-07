@@ -39,7 +39,7 @@ class GuildCog(commands.Cog):
                 {"$set": {"server_logs_channel_id": channel.id}},
                 upsert=True
             )
-            await interaction.followup.send(f"{channel.mention} has been for server logs.")
+            await interaction.followup.send(f"{channel.mention} has been set for server logs.")
         except Exception as e:
             await interaction.followup.send(f"❌ Error: {e}")
 
