@@ -37,17 +37,24 @@ class TicketService:
                 return existing_ticket, "exists"
 
         ticket_manager_role = await TicketService.get_ticket_manager_role(guild=guild)
-        open_ticket_category = await TicketService.create_or_get_ticket_category(guild=guild,
-                                                                                 category_name="Open Ticket",
-                                                                                 category_type="open")
+        open_ticket_category = await TicketService.create_or_get_ticket_category(guild=guild,category_name="Open Ticket", category_type="open")
+
+        guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
+        seller_role_id = guild_settings.seller_role_id
+        seller_role = None
+        if seller_role_id:
+            seller_role = guild.get_role(seller_role_id)
 
         # 1. Create Channel
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-            ticket_manager_role: discord.PermissionOverwrite(read_messages=True, manage_messages=True)
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True),
+            ticket_manager_role: discord.PermissionOverwrite(read_messages=True, manage_messages=True, read_message_history=True, send_messages=True),
         }
+
+        if seller_role:
+            overwrites[seller_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, read_message_history=True, manage_messages=True)
 
         # Determine topic
         if category_path:
