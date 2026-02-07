@@ -8,3 +8,4 @@ class GuildSettings(MongoModel):
     seller_role_id: Optional[int] = None
     rep_log_channel : Optional[int] = None
     rep_channel: Optional[int] = None
+    server_logs_channel_id : Optional[int] = None
