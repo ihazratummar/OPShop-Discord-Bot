@@ -5,7 +5,7 @@ from discord import app_commands
 class EmbedModal(discord.ui.Modal):
     json_input = discord.ui.TextInput(
         label="Discohook JSON",
-        style=discord.ui.TextStyle.paragraph,
+        style=discord.TextStyle.paragraph,
         placeholder="Paste your JSON here...",
         required=True,
         max_length=4000
@@ -64,10 +64,10 @@ class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="post_embed", description="Post a JSON embed to a specific channel")
+    @app_commands.command(name="announcement", description="Post a JSON embed to a specific channel")
     @app_commands.describe(channel="The channel to post the embed in")
     @app_commands.default_permissions(administrator=True) 
-    async def post_embed(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def announcement(self, interaction: discord.Interaction, channel: discord.TextChannel):
         await interaction.response.send_modal(EmbedModal(channel))
 
     @app_commands.command(name="emojis", description="Displays all the emojis")
