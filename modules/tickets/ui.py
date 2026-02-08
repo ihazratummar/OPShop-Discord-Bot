@@ -263,11 +263,14 @@ class TicketControlView(View):
 
         ## Check Access
         manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
+        seller_role = await GuildSettingService.get_seller_role(guild= interaction.guild)
         member = interaction.user
+        member_role_ids = {role.id for role in member.roles}
         allowed = (
                 member.id == settings.owner_id
-                or any(role.id == manager_role.id for role in member.roles)
                 or member.guild_permissions.administrator
+                or (manager_role and manager_role.id in member_role_ids)
+                or (seller_role and seller_role.id in member_role_ids)
         )
 
         if not allowed:
