@@ -61,46 +61,52 @@ class ReputationService:
         if review_text == "":
             review_text = None
 
-        rep_given_result = await  Database.users().find_one_and_update(
-            {"discord_id": message.author.id},
-            {"$inc": {"rep_given_counter": 1}},
-            upsert=True,
-            return_document=True
-        )
-        counter = rep_given_result.get("rep_given_counter", 1)
-
-        await EconomyService.modify_tokens(
-            user_id = message.author.id,
-            amount= 10,
-            reason="Reputation added",
-            actor_id=message.author.id,
-        )
-
-        if counter >= 3:
-            await Database.users().update_one(
+        # --- ALWAYS send confirmation messages, even if bonus logic fails ---
+        try:
+            rep_given_result = await Database.users().find_one_and_update(
                 {"discord_id": message.author.id},
-                {
-                    "$set": {"rep_given_counter": 0}
-                }
+                {"$inc": {"rep_given_counter": 1}},
+                upsert=True,
+                return_document=True
             )
+            counter = rep_given_result.get("rep_given_counter", 1)
 
-            asyncio.create_task(
-                ReputationService.add_rep(
-                    user_id=message.author.id,
-                    guild= guild,
-                    reputation_amount=1
-                )
-            )
-
+            # Give buyer 10 tokens
             await EconomyService.modify_tokens(
-                user_id= message.author.id,
-                amount= 10,
+                user_id=message.author.id,
+                amount=10,
                 reason="Reputation added",
                 actor_id=message.author.id,
             )
 
-            await message.reply(f"<a:arrow:1468247068240777238> {message.author.mention} has earned +1 rep <a:bluestar:1468261614200422471> for participating in a smooth trade and crediting the merchant ")
+            # Every 3rd rep, buyer gets bonus +1 rep
+            if counter >= 3:
+                await Database.users().update_one(
+                    {"discord_id": message.author.id},
+                    {"$set": {"rep_given_counter": 0}}
+                )
 
+                asyncio.create_task(
+                    ReputationService.add_rep(
+                        user_id=message.author.id,
+                        guild=guild,
+                        reputation_amount=1
+                    )
+                )
+
+                await EconomyService.modify_tokens(
+                    user_id=message.author.id,
+                    amount=10,
+                    reason="Reputation bonus for 3rd rep",
+                    actor_id=message.author.id,
+                )
+
+                await message.reply(f"<a:arrow:1468247068240777238> {message.author.mention} has earned +1 rep <a:bluestar:1468261614200422471> for participating in a smooth trade and crediting the merchant")
+
+        except Exception as e:
+            logger.error(f"Error in bonus logic: {e}")
+
+        # --- Add reputation to seller (always) ---
         asyncio.create_task(
             ReputationService.add_reputation(
                 from_user_id=message.author.id,
@@ -109,10 +115,14 @@ class ReputationService:
                 message=review_text
             )
         )
-        emoji = GuildSettingService.get_server_emoji(guild = guild, emoji_id= Emoji.SHOP_TOKEN.value)
 
-        await message.channel.send(f"{message.author.mention} has earned {emoji if emoji else  "🪙"} 10 Shop Tokens")
-        await message.channel.send(f"{target.mention} has earned +1 <a:bluestar:1468261614200422471>.")
+        # --- Send confirmation messages (ALWAYS) ---
+        try:
+            emoji = GuildSettingService.get_server_emoji(guild=guild, emoji_id=Emoji.SHOP_TOKEN.value)
+            await message.channel.send(f"{message.author.mention} has earned {emoji if emoji else '🪙'} 10 Shop Tokens")
+            await message.channel.send(f"{target.mention} has earned +1 <a:bluestar:1468261614200422471>.")
+        except Exception as e:
+            logger.error(f"Failed to send rep confirmation: {e}")
 
     @staticmethod
     async def add_reputation(from_user_id: int, target_user_id: int, guild: discord.Guild, message: str = None,
