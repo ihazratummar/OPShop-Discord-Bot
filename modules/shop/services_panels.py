@@ -66,6 +66,46 @@ class ShopPanelService:
                 await ShopPanelService.delete_panel(panel.message_id)
                 return
 
+            # --- Handle Panel Types ---
+            if panel.type == "custom":
+                from modules.tickets.ui import CustomTicketView
+                view = CustomTicketView(custom_id=panel.custom_id or "ticket_create")
+                await message.edit(view=view)
+                return
+
+            elif panel.type == "directory":
+                from modules.shop.ui import ItemDirectoryView
+                
+                items = await ItemService.get_all_items(active_only=True)
+                items.sort(key=lambda x: x.id, reverse=True)
+                
+                if items:
+                    view = ItemDirectoryView(directory_items=items)
+                else:
+                    from types import SimpleNamespace
+                    dummy = SimpleNamespace(name="No active items", id="0")
+                    view = ItemDirectoryView(directory_items=[dummy])
+                    
+                await message.edit(view=view)
+                return
+
+            elif panel.type == "item":
+                item_id = panel.category_id.replace("item:", "") if panel.category_id else None
+                if not item_id:
+                     return
+
+                item = await ItemService.get_item(item_id)
+                if not item:
+                    await message.delete()
+                    await ShopPanelService.delete_panel(panel.message_id)
+                    return
+                
+                from modules.shop.ui import ItemOrderView
+                view = ItemOrderView(item_id=item_id)
+                await message.edit(view=view)
+                return
+
+            # --- Default: Category Panel ---
             category = await CategoryService.get_category(panel.category_id)
             if not category:
                 # Category deleted
@@ -76,14 +116,15 @@ class ShopPanelService:
             # Re-generate View & Embed
             subcategories = await CategoryService.get_active_categories(parent_id=str(category.id))
             items = await ItemService.get_items_by_category(str(category.id), active_only=True)
-
-            # Using page 0 for persistent view usually
-            embed = await get_category_embed(category, subcategories, items, page=0)
-            view = ShopCategoryView(category, user_id=0)  # user_id=0 or None?
-            # Note: ShopCategoryView expects a user_id for filtering back buttons sometimes, 
-            # but for a public panel, anybody can click. We might need to adjust View to handle "Any User"
-
-            await message.edit(embed=embed, view=view)
+            
+            from modules.shop.ui import OrderNowView
+            view = OrderNowView(category_id=panel.category_id)
+            
+            if not panel.embed_json:
+                embed = await get_category_embed(category, subcategories, items, page=0)
+                await message.edit(embed=embed, view=view)
+            else:
+                await message.edit(view=view)
 
         except Exception as e:
             logger.error(f"Failed to refresh panel {panel.id}: {e}")
