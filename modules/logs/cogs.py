@@ -55,7 +55,7 @@ class ServerLogsCogs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
-        if message.guild is None or (message.author and message.author.bot):
+        if message.guild is None:
             return
         fields = [
             ("Author", f"{getattr(message.author, 'mention', 'Unknown')} ({getattr(message.author, 'id', 'N/A')})",
