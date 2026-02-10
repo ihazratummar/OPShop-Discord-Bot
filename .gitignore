@@ -13,6 +13,8 @@ __pycache__/
 /.idea
 ROADMAP.MD
 # Distribution / packaging
+**.zip
+
 
 .gitignore
 .Python

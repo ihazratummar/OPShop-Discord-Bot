@@ -1,28 +1,17 @@
-import asyncio
 import json
-import random
-import uuid
-from uuid import UUID
 
 import discord
 from discord import TextStyle, Interaction
 from discord.ui import View, Button, TextInput, Modal
-from typing_extensions import override
 
 from core.config import settings
-from core.constant import Emoji
 from core.database import Database, logger
-from modules.economy.models import Transaction
-from modules.economy.services import TransactionService, EconomyService
 from modules.guild.service import GuildSettingService
-from modules.reputation.service import ReputationService
-from modules.shop.services import ItemService
-from modules.tickets.models import TicketSettingsModel, Ticket
-from modules.tickets.services import TicketService
-from modules.xp.services import XPService
+from modules.tickets.models import TicketSettingsModel
 
 
 async def get_ticket_settings_embed(guild_id: int) -> discord.Embed:
+    from modules.tickets.services import TicketService
     data = await TicketService.get_ticket_settings(guild_id)
 
     if not data:
@@ -216,13 +205,15 @@ class TicketSettingsView(View):
 
     @discord.ui.button(label="Edit", style=discord.ButtonStyle.blurple, emoji="✏️")
     async def edit_ticket_panel(self, interaction: discord.Interaction, button: Button):
+        from modules.tickets.services import TicketService
         ticket_settings = await TicketService.get_ticket_settings(self.guild_id)
         modal = TicketPanelModal(root_view=self, ticket_data=ticket_settings)
         await interaction.response.send_modal(modal)
 
 
 class TicketControlView(View):
-    def __init__(self, ticket_id: str, is_custom_ticket: bool = False, is_item_ticket: bool = False):
+    def __init__(self, ticket_id: str, is_custom_ticket: bool = False, is_item_ticket: bool = False,
+                 claimed_by: int = None):
         super().__init__(timeout=None)  # Persistent view logic needs setup, for now simple
         self.ticket_id = ticket_id
         self.is_custom_ticket = is_custom_ticket
@@ -244,216 +235,46 @@ class TicketControlView(View):
         )
         close_button.callback = self.close_ticket_btn
 
-        claim_ticket_button = discord.ui.Button(
-            label="Claim Ticket",
-            style=discord.ButtonStyle.green,
-            emoji="📌",
-            custom_id=f"claim_ticket_{ticket_id}",
-        )
-        claim_ticket_button.callback = self.claim_ticket_btn
+        # Create claim button based on current state
+        if claimed_by:
+            # Ticket is already claimed - show Unclaim button
+            claim_ticket_button = discord.ui.Button(
+                label="Unclaim Ticket",
+                style=discord.ButtonStyle.grey,
+                emoji="📍",
+                custom_id=f"unclaim_ticket_{ticket_id}",
+            )
+            claim_ticket_button.callback = self.unclaim_ticket_btn
+        else:
+            # Ticket not claimed - show Claim button
+            claim_ticket_button = discord.ui.Button(
+                label="Claim Ticket",
+                style=discord.ButtonStyle.green,
+                emoji="📌",
+                custom_id=f"claim_ticket_{ticket_id}",
+            )
+            claim_ticket_button.callback = self.claim_ticket_btn
 
         self.add_item(complete_button)
-
         self.add_item(claim_ticket_button)
-
         self.add_item(close_button)
 
     async def complete_order(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        ## Check Access
-        manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
-        seller_role = await GuildSettingService.get_seller_role(guild= interaction.guild)
-        member = interaction.user
-        member_role_ids = {role.id for role in member.roles}
-        allowed = (
-                member.id == settings.owner_id
-                or member.guild_permissions.administrator
-                or (manager_role and manager_role.id in member_role_ids)
-                or (seller_role and seller_role.id in member_role_ids)
-        )
-
-        if not allowed:
-            await interaction.followup.send("You are not allowed to do that!")
-            return
-
-        # 1. Get ticket details
-        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
-        if not ticket:
-            await interaction.followup.send("Ticket not found!", ephemeral=True)
-            return
-
-        # 2. Get Item details if exists
-        # item = None
-        # if ticket.related_item_id:
-        #     item = await ItemService.get_item(ticket.related_item_id)
-
-        # 3. Log Transaction
-        # txn = Transaction(
-        #     user_id=ticket.user_id,
-        #     type='purchase',
-        #     amount_tokens=item.price if item and item.currency == 'tokens' else 0,
-        #     item_id=str(item.id) if item else None,
-        #     item_name=item.name if item else "Custom Order",
-        #     performed_by=interaction.user.id
-        # )
-        # asyncio.create_task(TransactionService.log_transaction(txn))
-
-        # 3.5 Award Rewards (Tokens & XP)
-        # Tokens
-        ticket_user = interaction.guild.get_member(ticket.user_id)
-
-
-        await EconomyService.modify_tokens(
-                ticket.user_id,
-                10,
-                f"Reward for purchasing",
-                interaction.user.id
-            )
-        emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=interaction.guild)
-        await interaction.channel.send(f"🎉 {ticket_user.mention} rewarded **10** {emoji if emoji else "🪙"} Tokens!")
-
-        await ReputationService.add_rep(
-                user_id=interaction.user.id,
-                guild=interaction.guild,
-                reputation_amount=1
-            )
-
-        await interaction.channel.send(
-                f"{interaction.user.mention} has earned +1 <a:bluestar:1468261614200422471>.")
-
-
-        # # 3.5 Award Rewards (Tokens & XP)
-        # if item:
-        #     # Tokens
-        #     ticket_user = interaction.guild.get_member(ticket.user_id)
-        #     tasks = []
-        #
-        #     if item.token_reward > 0:
-        #         tasks.append(
-        #             EconomyService.modify_tokens(
-        #                 ticket.user_id,
-        #                 item.token_reward,
-        #                 f"Reward for purchasing {item.name}",
-        #                 interaction.user.id
-        #             )
-        #         )
-        #         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild= interaction.guild)
-        #         tasks.append(
-        #             interaction.channel.send(
-        #                 f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {emoji if emoji else "🪙"} Tokens!")
-        #         )
-        #
-        #         tasks.append(
-        #             ReputationService.add_rep(
-        #                 user_id=interaction.user.id,
-        #                 guild = interaction.guild,
-        #                 reputation_amount=1
-        #             )
-        #         )
-        #         tasks.append(
-        #             interaction.channel.send(
-        #                 f"{interaction.user.mention} has earned +1 <a:bluestar:1468261614200422471>.")
-        #         )
-        #         await asyncio.gather(*tasks, return_exceptions=True)
-
-
-        # 4. Close Ticket
-        await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
-        await interaction.edit_original_response(view=TicketClosedView(ticket_id=self.ticket_id, root_view=self))
-        await interaction.followup.send("Order completed! formatting transcript...", ephemeral=True)
+        from modules.tickets.services import TicketService
+        await TicketService.complete_order(interaction= interaction, root_view= self)
 
     async def close_ticket_btn(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
-        if ticket:
-            await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
-
-        await interaction.followup.send("Closing ticket...", ephemeral=True)
-        await interaction.edit_original_response(view=TicketClosedView(ticket_id=self.ticket_id, root_view=self))
-        await interaction.channel.send(f"🔒 **Ticket Closed** by {interaction.user.mention}. Closing in 5 seconds.")
+        from modules.tickets.services import TicketService
+        await TicketService.close_ticket_btn(interaction= interaction, root_view= self)
 
     async def claim_ticket_btn(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        seller_role = await GuildSettingService.get_seller_role(interaction.guild)
-        # 1. Check the claimer is a seller or admin or not
-        if not seller_role:
-            await interaction.followup.send("Seller role not configured", ephemeral=True)
-            return
+        from modules.tickets.services import TicketService
+        await TicketService.claim_ticket_func(interaction= interaction, ticket_id= self.ticket_id, root_view= self)
 
-        allowed = (
-                interaction.user.guild_permissions.administrator or
-                seller_role in interaction.user.roles
-        )
-        if not allowed:
-            await interaction.followup.send("To claim a ticket you must be an admin or a seller!", ephemeral=True)
-            return
 
-        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
-
-        if interaction.user.id == ticket.user_id:
-            await interaction.followup.send("You cannot claim a ticket!", ephemeral=True)
-            return
-
-        if ticket:
-            ticket, status = await TicketService.claim_ticket(ticket, interaction.user.id, interaction.guild)
-            if not status:
-                await interaction.followup.send(f"Ticket already claimed by {interaction.user.mention}!",
-                                                ephemeral=True)
-                return
-
-        for item in self.children:
-            if item.custom_id == f"claim_ticket_{self.ticket_id}":
-                item.disabled = True
-                break
-
-        channel: discord.TextChannel = interaction.channel
-        msg = await channel.fetch_message(ticket.message_id)
-
-        embed = msg.embeds[0]
-
-        embed.add_field(
-            name="📌 Claimed By",
-            value=interaction.user.mention,
-            inline=False
-        )
-
-        ticket_owner_id = ticket.user_id
-        ticket_owner = interaction.guild.get_member(ticket_owner_id)
-
-        overwrites = {}
-
-        if ticket_owner:
-            overwrites[ticket_owner] = discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True
-            )
-
-        overwrites[interaction.guild.default_role] = discord.PermissionOverwrite(
-            view_channel=False,
-        )
-
-        overwrites[interaction.user] = discord.PermissionOverwrite(
-            view_channel=True,
-            send_messages=True,
-            read_message_history=True,
-            manage_messages=True
-        )
-
-        overwrites[interaction.guild.me] = discord.PermissionOverwrite(
-            view_channel=True,
-            send_messages=True,
-            manage_messages=True
-        )
-
-        await msg.edit(
-            content=f"{interaction.user.mention} {ticket_owner.mention}",
-            embed=embed,
-            view=self
-        )
-
-        await channel.edit(overwrites=overwrites)
+    async def unclaim_ticket_btn(self, interaction: discord.Interaction):
+        from modules.tickets.services import TicketService
+        await TicketService.unclaim_ticket_btn(interaction= interaction, root_view= self)
 
 
 class TicketClosedView(View):
@@ -472,22 +293,25 @@ class TicketClosedView(View):
         self.add_item(delete_btn)
 
     async def delete_ticket_btn(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
-        member = interaction.user
-        allowed = (
-                member.id == settings.owner_id
-                or any(role.id == manager_role.id for role in member.roles)
-                or member.guild_permissions.administrator
-        )
-
-        if not allowed:
-            await interaction.followup.send("You are not allowed to do that!")
-            return
-
-        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
-        await TicketService.delete_ticket(ticket=ticket, delete_by_user=interaction.user.id, guild=interaction.guild)
-        await interaction.channel.delete(reason="Ticket Deleted")
+        from modules.tickets.services import TicketService
+        await TicketService.delete_ticket_btn(interaction=interaction)
+        # await interaction.response.defer(ephemeral=True)
+        # from modules.tickets.services import TicketService
+        # manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
+        # member = interaction.user
+        # allowed = (
+        #         member.id == settings.owner_id
+        #         or any(role.id == manager_role.id for role in member.roles)
+        #         or member.guild_permissions.administrator
+        # )
+        #
+        # if not allowed:
+        #     await interaction.followup.send("You are not allowed to do that!")
+        #     return
+        #
+        # ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
+        # await TicketService.delete_ticket(ticket=ticket, delete_by_user=interaction.user.id, guild=interaction.guild)
+        # await interaction.channel.delete(reason="Ticket Deleted")
 
 
 class EmbedJsonModal(Modal):
@@ -535,17 +359,17 @@ class EmbedJsonModal(Modal):
                     try:
                         embeds.append(discord.Embed.from_dict(emp_data))
                     except Exception:
-                        pass # Ignore invalid embeds
+                        pass  # Ignore invalid embeds
             elif "title" in data or "description" in data:
                 # Single embed object at root
                 embeds.append(discord.Embed.from_dict(data))
         elif isinstance(data, list):
-             # List of embeds?
-             for emp_data in data:
-                 if isinstance(emp_data, dict):
-                     try:
+            # List of embeds?
+            for emp_data in data:
+                if isinstance(emp_data, dict):
+                    try:
                         embeds.append(discord.Embed.from_dict(emp_data))
-                     except Exception:
+                    except Exception:
                         pass
 
         if not embeds and not content:
@@ -554,14 +378,15 @@ class EmbedJsonModal(Modal):
                 ephemeral=True
             )
             return
-        
+
         # Limit to 10 embeds (Discord limit)
         if len(embeds) > 10:
             embeds = embeds[:10]
 
         try:
             # Updated signature: embeds (list), content (str)
-            await self.on_success(embeds, content, interaction, self.channel, self.button_name, self.button_emoji,  raw_json)
+            await self.on_success(embeds, content, interaction, self.channel, self.button_name, self.button_emoji,
+                                  raw_json)
         except Exception:
             logger.exception("Embed modal callback failed")
             await interaction.followup.send(
@@ -571,19 +396,20 @@ class EmbedJsonModal(Modal):
 
 
 class CustomTicketView(View):
-    def __init__(self, custom_id: str, button_emoji: str = "🎟️",  button_name: str = "Create Ticket", ):
+    def __init__(self, custom_id: str, button_emoji: str = "🎟️", button_name: str = "Create Ticket", ):
         super().__init__(timeout=None)
         self.button_name = button_name
         self.custom_id = custom_id
         self.button_emoji = button_emoji
-        self.add_item(CustomTicketButton(label=self.button_name, custom_id=self.custom_id, button_emoji= self.button_emoji))
+        self.add_item(
+            CustomTicketButton(label=self.button_name, custom_id=self.custom_id, button_emoji=self.button_emoji))
 
 
 class CustomTicketButton(Button):
-    def __init__(self, label: str, custom_id: str,button_emoji: str):
+    def __init__(self, label: str, custom_id: str, button_emoji: str):
         super().__init__(
             label=label,
-            emoji= button_emoji,
+            emoji=button_emoji,
             custom_id=f"custom_button_{custom_id}"
         )
 
@@ -591,6 +417,7 @@ class CustomTicketButton(Button):
         await interaction.response.defer(ephemeral=True)
         try:
             ### Create ticket
+            from modules.tickets.services import TicketService
             ticket, status = await TicketService.create_ticket(
                 user=interaction.user,
                 guild=interaction.guild,
@@ -627,7 +454,9 @@ class CustomTicketButton(Button):
                 value=f"{ticket.id}",
             )
 
-            message = await channel.send(content=f"{interaction.user.mention}, {ticket_manager.mention} {seller_role.mention if seller_role else ""}", embed= embed , view=view)
+            message = await channel.send(
+                content=f"{interaction.user.mention}, {ticket_manager.mention} {seller_role.mention if seller_role else ""}",
+                embed=embed, view=view)
             await Database.tickets().update_one(
                 {"_id": ticket.id},
                 {"$set": {"message_id": message.id}},
@@ -639,3 +468,44 @@ class CustomTicketButton(Button):
 
         except Exception as e:
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ========================================
+# Shop Panel Components (Persistent)
+# ========================================
+
+class ShopPanelView(View):
+    """Persistent view with a button to open the Shop."""
+
+    def __init__(self, button_label: str = "🛒 Open Shop", button_emoji: str = None):
+        super().__init__(timeout=None)
+        self.add_item(ShopPanelButton(label=button_label, emoji=button_emoji))
+
+
+class ShopPanelButton(Button):
+    """Persistent button that opens the shop browser."""
+
+    def __init__(self, label: str, emoji: str = None):
+        super().__init__(
+            label=label,
+            style=discord.ButtonStyle.green,
+            emoji=emoji,
+            custom_id="shop_panel_open"  # Static ID for persistence
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            from modules.shop.ui import ShopRootView, get_root_embed
+            from modules.shop.services import CategoryService
+
+            view = ShopRootView(interaction.user.id)
+            await view.init_view()
+
+            categories = await CategoryService.get_active_categories()
+            embed = await get_root_embed(categories)
+
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Failed to open shop: {e}", ephemeral=True)

@@ -22,7 +22,7 @@ class Item(MongoModel):
     
     # Pricing
     price: float = Field(default=0.0, ge=0)
-    currency: Literal['credits', 'tokens'] = Field(default='credits')
+    currency: Literal['credits', 'tokens'] = Field(default='tokens')
     
     # Visuals
     image_url: Optional[str] = Field(default=None, description="Optional image to show in embed")

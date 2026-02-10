@@ -4,11 +4,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.logger import setup_logger
+from loguru import logger
 from modules.admin.ui import AdminRootView, get_root_embed, EmbedJsonModal
 from modules.shop.services import CategoryService
 
-logger = setup_logger("admin_cog")
 
 
 class AdminCog(commands.Cog):

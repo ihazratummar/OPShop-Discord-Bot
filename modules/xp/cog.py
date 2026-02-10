@@ -3,9 +3,8 @@ from discord import app_commands
 from discord.ext import commands
 from modules.economy.services import EconomyService
 from modules.xp.services import XPService
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("xp_cog")
 
 class XPCog(commands.Cog):
     def __init__(self, bot):

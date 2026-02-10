@@ -2,10 +2,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.logger import setup_logger
+from loguru import logger
 from modules.tickets.ui import CustomTicketView
 
-logger = setup_logger("shop_cog")
 
 class ShopCog(commands.Cog):
     def __init__(self, bot):

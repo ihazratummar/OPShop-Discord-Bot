@@ -1,12 +1,10 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-
-from core.logger import setup_logger
+from loguru import logger
 from modules.audit.services import AuditLogService
 from modules.economy.services import EconomyService
 
-logger = setup_logger("economy_cog")
 
 class EconomyCog(commands.Cog):
     def __init__(self, bot):

@@ -1,14 +1,14 @@
 import asyncio
 from typing import List, Optional
-from bson import ObjectId
-from core.database import Database
-from modules.shop.models import ShopPanel, Category
-from modules.shop.services import CategoryService, ItemService
-from modules.shop.ui import ShopCategoryView, get_category_embed
-from core.logger import setup_logger
-import discord
 
-logger = setup_logger("shop_panel_service")
+import discord
+from bson import ObjectId
+from loguru import logger
+
+from core.database import Database
+from modules.shop.models import ShopPanel
+from modules.shop.services import CategoryService, ItemService
+from modules.shop.ui import get_category_embed
 
 
 class ShopPanelService:
@@ -102,6 +102,12 @@ class ShopPanelService:
                 
                 from modules.shop.ui import ItemOrderView
                 view = ItemOrderView(item_id=item_id)
+                await message.edit(view=view)
+                return
+
+            elif panel.type == "shop":
+                from modules.tickets.ui import ShopPanelView
+                view = ShopPanelView()
                 await message.edit(view=view)
                 return
 

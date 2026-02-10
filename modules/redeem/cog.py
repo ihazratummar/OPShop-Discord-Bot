@@ -2,9 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from modules.redeem.services import RedeemService
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("redeem_cog")
 
 class RedeemCog(commands.Cog):
     def __init__(self, bot):

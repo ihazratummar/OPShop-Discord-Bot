@@ -64,10 +64,10 @@ class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="announcement", description="Post a JSON embed to a specific channel")
+    @app_commands.command(name="sendmessage", description="Post a JSON embed to a specific channel")
     @app_commands.describe(channel="The channel to post the embed in")
     @app_commands.default_permissions(administrator=True) 
-    async def announcement(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def sendmessage(self, interaction: discord.Interaction, channel: discord.TextChannel):
         await interaction.response.send_modal(EmbedModal(channel))
 
     @app_commands.command(name="emojis", description="Displays all the emojis")

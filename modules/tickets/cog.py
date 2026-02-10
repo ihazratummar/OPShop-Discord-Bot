@@ -1,11 +1,9 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from core.logger import setup_logger
+from loguru import logger
 from modules.tickets.ui import get_ticket_settings_embed, TicketSettingsView, TicketControlView, TicketClosedView, \
-    EmbedJsonModal
-
-logger = setup_logger("tickets_cog")
+    EmbedJsonModal, ShopPanelView
 
 
 class TicketsCog(commands.Cog):
@@ -19,12 +17,15 @@ class TicketsCog(commands.Cog):
         count = 0
         for ticket in tickets:
             if not ticket.status == "deleted":
-                view = TicketControlView(ticket_id=str(ticket.id))
+                view = TicketControlView(ticket_id=str(ticket.id), claimed_by=ticket.claimed_by)
                 count += 1
                 closed_view = TicketClosedView(ticket_id=str(ticket.id), root_view=view)
                 self.bot.add_view(view)
                 self.bot.add_view(closed_view)
 
+        # Register persistent ShopPanelView
+        self.bot.add_view(ShopPanelView())
+        
         logger.info(f"Loaded {count} tickets")
 
     @commands.Cog.listener()
@@ -78,9 +79,68 @@ class TicketsCog(commands.Cog):
         )
         await interaction.response.send_modal(modal)
 
+    @app_commands.command(name="create_shop_panel", description="Create a Shop panel with Open Shop button")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(channel="Channel to post the shop panel")
+    async def create_shop_panel(self, interaction: discord.Interaction, channel: discord.TextChannel, button_name: str = "Open Shop",emoji: str ="🛒"):
+        from modules.tickets.services import TicketService
+        modal = EmbedJsonModal(
+            title="Shop Panel Creation",
+            channel=channel,
+            button_name= button_name,
+            button_emoji=emoji,
+            on_success=TicketService.shop_panel_modal_callback
+        )
+        await interaction.response.send_modal(modal)
 
 
+    @app_commands.command(name="ticket_complete", description="Mark the ticket as completed")
+    @app_commands.guild_only()
+    async def ticket_complete(self, interaction: discord.Interaction):
+        from modules.tickets.services import TicketService
+        from modules.tickets.ui import TicketControlView
+        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
 
+        view = TicketControlView(ticket_id= str(ticket.id))
+        await TicketService.complete_order(interaction=interaction, root_view= view)
+
+    @app_commands.command(name="ticket_close", description="Close a ticket")
+    @app_commands.guild_only()
+    async def ticket_close(self, interaction: discord.Interaction):
+        from modules.tickets.services import TicketService
+        from modules.tickets.ui import TicketControlView
+        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
+
+        view = TicketControlView(ticket_id=str(ticket.id))
+        await TicketService.close_ticket_btn(interaction=interaction, root_view=view)
+
+    @app_commands.command(name="ticket_claim", description="Claim a ticket")
+    @app_commands.guild_only()
+    async def ticket_claim(self, interaction: discord.Interaction):
+        from modules.tickets.services import TicketService
+        from modules.tickets.ui import TicketControlView
+        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
+
+        view = TicketControlView(ticket_id=str(ticket.id))
+        await TicketService.claim_ticket_func(interaction=interaction, root_view=view, ticket_id=str(ticket.id))
+
+    @app_commands.command(name="ticket_unclaim", description="Unclaim a ticket")
+    @app_commands.guild_only()
+    async def ticket_unclaim(self, interaction: discord.Interaction):
+        from modules.tickets.services import TicketService
+        from modules.tickets.ui import TicketControlView
+        ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
+
+        view = TicketControlView(ticket_id=str(ticket.id))
+        await TicketService.unclaim_ticket_btn(interaction=interaction, root_view=view)
+
+    @app_commands.command(name="ticket_delete", description="Delete a ticket")
+    @app_commands.guild_only()
+    async def ticket_unclaim(self, interaction: discord.Interaction):
+        from modules.tickets.services import TicketService
+        await TicketService.delete_ticket_btn(interaction=interaction)
 
 async def setup(bot):
     await bot.add_cog(TicketsCog(bot))
+

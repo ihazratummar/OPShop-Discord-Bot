@@ -1,9 +1,8 @@
 import discord
 from discord.utils import get
 from datetime import datetime
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("audit_service")
 
 class AuditLogService:
     @staticmethod

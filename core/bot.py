@@ -2,12 +2,11 @@ import discord
 from discord.ext import commands
 from core.config import settings
 from core.database import Database
-from core.logger import setup_logger
+from loguru import logger
 import os
 
 from modules.invite_tracker.service import InviteTrackerService
 
-logger = setup_logger("bot")
 
 class ShopBot(commands.Bot):
     def __init__(self):

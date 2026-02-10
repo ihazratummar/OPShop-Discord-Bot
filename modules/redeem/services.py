@@ -1,8 +1,7 @@
 import discord
 from modules.economy.services import EconomyService
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("redeem_service")
 
 class RedeemService:
     @staticmethod

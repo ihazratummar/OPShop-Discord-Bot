@@ -1,10 +1,9 @@
 import math
 from core.database import Database
 from core.models.user import User
-from core.logger import setup_logger
+from loguru import logger
 from modules.economy.services import EconomyService
 
-logger = setup_logger("xp_service")
 
 class XPService:
     @staticmethod

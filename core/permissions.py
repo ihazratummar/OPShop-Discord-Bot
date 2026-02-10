@@ -1,8 +1,7 @@
 from discord.ext import commands
 from core.config import settings
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("permissions")
 
 # In the future, these can be loaded from DB or config
 ADMIN_ROLE_IDS = [] # Populate with ID from config/DB

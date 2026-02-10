@@ -5,13 +5,13 @@ import re
 
 from core.constant import Emoji
 from core.database import Database
-from core.logger import setup_logger
+from loguru import logger
 from modules.economy.services import EconomyService
 from modules.guild.service import GuildSettingService
 from modules.reputation.models import ReputationLogs, ReputationTier
 from modules.xp.services import XPService
 
-logger = setup_logger("reputation")
+
 class ReputationService:
     COOLDOWN_SECONDS = 60 * 60 * 24
 
@@ -119,8 +119,7 @@ class ReputationService:
         # --- Send confirmation messages (ALWAYS) ---
         try:
             emoji = GuildSettingService.get_server_emoji(guild=guild, emoji_id=Emoji.SHOP_TOKEN.value)
-            await message.channel.send(f"{message.author.mention} has earned {emoji if emoji else '🪙'} 10 Shop Tokens")
-            await message.channel.send(f"{target.mention} has earned +1 <a:bluestar:1468261614200422471>.")
+            await message.channel.send(f"{message.author.mention} has earned {emoji if emoji else '🪙'} 10 Shop Tokens\n{target.mention} has earned +1 Reputation <a:bluestar:1468261614200422471>.")
         except Exception as e:
             logger.error(f"Failed to send rep confirmation: {e}")
 

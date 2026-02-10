@@ -2,9 +2,8 @@ from typing import List, Optional
 from bson import ObjectId
 from core.database import Database
 from modules.shop.models import Category, Item
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("shop_service")
 
 class CategoryService:
     @staticmethod

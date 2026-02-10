@@ -2,9 +2,8 @@ from typing import Tuple, Optional
 from core.database import Database
 from core.models.user import User
 from modules.economy.models import Transaction
-from core.logger import setup_logger
+from loguru import logger
 
-logger = setup_logger("economy_service")
 
 class TransactionService:
     @staticmethod
