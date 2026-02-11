@@ -78,7 +78,7 @@ class ShopCog(commands.Cog):
             await view.init_view()
             
             categories = await CategoryService.get_active_categories()
-            embed = await get_root_embed(categories)
+            embed = await get_root_embed(categories= categories)
             
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         except Exception as e:

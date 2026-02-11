@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 
 import discord
@@ -13,128 +14,171 @@ from modules.xp.services import XPService
 
 
 class InviteTrackerService:
-    cache = {}
+    _cache: dict[int, dict[str, int]] = {}
+    _locks: dict[int, asyncio.Lock] = {}
 
-    @staticmethod
-    async def cache_guild(guild: discord.Guild):
+
+    @classmethod
+    def _get_lock(cls, guild_id: int)-> asyncio.Lock:
+        """Return a per-guild lock, creating it if needed"""
+        if guild_id not in cls._locks:
+            cls._locks[guild_id] = asyncio.Lock()
+        return cls._locks[guild_id]
+
+
+
+    @classmethod
+    async def cache_guild(cls, guild: discord.Guild):
 
         """
+        Snapshot all current invite uses for a guild.
+        Structure: { guild_id: { code: uses } }
+        """
+
+        async with cls._get_lock(guild_id=guild.id):
+            try:
+                invites = await guild.invites()
+            except discord.Forbidden:
+                logger.warning(f"[InviteTracker] Missing 'Manage Guild' permissions")
+                return
+
+            snapshot = {invite.code: invite.uses for invite in invites}
+            cls._cache[guild.id] = snapshot
+
+            for invite in invites:
+                await Database.invites().update_one(
+                    {"guild_id": guild.id, "code": invite.code},
+                    {
+                        "$set": {
+                            "uses": invite.uses,
+                            "inviter_id": invite.inviter.id if invite.inviter else None
+                        }
+                    },
+                    upsert=True
+                )
+
+    @classmethod
+    async def detect_used_invite(cls, guild: discord.Guild) -> discord.Invite | None:
+        """
+        Diff the cache snapshot against current invites to find which
+        invite was just used. Must be called under the guild lock.
+        Return the used Invite or None
         :param guild:
         :return:
-        {guild_id :{code: uses}}
         """
 
-        invites = await guild.invites()
+        try:
+            new_invites = await guild.invites()
+        except discord.Forbidden:
+            logger.warning(f"[InviteTracker] can not fetch invites for guild {guild.id}")
+            return None
 
-        InviteTrackerService.cache[guild.id] = {}
+        old = cls._cache.get(guild.id, {})
+        used_invite = None
 
-        for invite in invites:
-            InviteTrackerService.cache[guild.id][invite.code] = invite.uses
+        for invite in new_invites:
+            if invite.uses > old.get(invite.code, 0):
+                used_invite = invite
+                break
 
-            await Database.invites().update_one(
-                {
-                    "guild_id": guild.id,
-                    "code": invite.code
-                },
+        # Always refresh cahe after diffing so the next join is accurate
+        cls._cache[guild.id] = { inv.code: inv.uses for inv in new_invites}
+
+        # Persist updated snapshot
+
+        for invite in new_invites:
+            await  Database.invites().update_one(
+                {"guild_id": guild.id, "code": invite.code},
                 {
                     "$set": {
                         "uses": invite.uses,
                         "inviter_id": invite.inviter.id if invite.inviter else None
                     }
                 },
-                upsert=True
+                upsert= True
             )
 
-        InviteTrackerService.cache[guild.id] = {
-            invite.code: invite.uses
-            for invite in invites
-        }
+        return used_invite
 
-    @staticmethod
-    async def process_join(member: discord.Member, inviter: discord.Member, guild: discord.Guild):
-
-        # prevent self-invite wired case
+    @classmethod
+    async def process_join(
+            cls,
+            member: discord.Member,
+            inviter: discord.Member | discord.User,
+            guild: discord.Guild,
+    ) -> None:
+        # Prevent self-invite edge case
         if member.id == inviter.id:
             return
 
-        # prevent rejoin farming
-
-        existing = await  Database.invite_joins().find_one(
+        # Atomic upsert: only insert if this (user, guild) pair doesn't exist yet.
+        # This eliminates the TOCTOU race between find_one + insert_one.
+        result = await Database.invite_joins().update_one(
+            {"user_id": member.id, "guild_id": guild.id},
             {
-                "user_id": member.id,
-                "guild_id": guild.id
-            }
+                "$setOnInsert": {
+                    "user_id": member.id,
+                    "inviter_id": inviter.id,
+                    "guild_id": guild.id,
+                    "timestamp": datetime.datetime.utcnow(),
+                }
+            },
+            upsert=True,
         )
-        if existing:
+
+        # If no document was inserted, this is a rejoin — skip rewards
+        if result.upserted_id is None:
+            logger.info(f"[InviteTracker] Rejoin detected for {member.id} in {guild.id}, skipping.")
             return
 
-        invite_join = InviteJoins(
-            user_id=member.id,
-            inviter_id=inviter.id,
-            guild_id=guild.id,
-            timestamp=datetime.datetime.now()
-        )
-        await Database.invite_joins().insert_one(invite_join.to_mongo())
+        # --- Rewards ---
+        reward_message: str | None = None
 
         seller_role = await GuildSettingService.get_seller_role(guild=guild)
+        # guild.get_member() only works if the inviter is still in the guild.
+        # inviter may be a plain discord.User when fetched from invite.inviter.
+        inviter_member = guild.get_member(inviter.id)
+        has_seller_role = inviter_member and seller_role in inviter_member.roles
 
-        if seller_role in inviter.roles:
+        if has_seller_role:
             emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
-            reward_message = f"{emoji if emoji else "🔮"} +1 reputation!"
-            await  ReputationService.add_rep(user_id=inviter.id, guild=guild)
+            reward_message = f"{emoji or '🔮'} +1 reputation!"
+            await ReputationService.add_rep(user_id=inviter.id, guild=guild)
         else:
             emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
-            reward_message = f"{emoji if emoji else "🪙"} 10 Shop Tokens"
-            await EconomyService.modify_tokens(user_id=inviter.id, amount=10, reason="Invite Reward",
-                                               actor_id=inviter.id)
+            reward_message = f"{emoji or '🪙'} 10 Shop Tokens"
+            await EconomyService.modify_tokens(
+                user_id=inviter.id, amount=10, reason="Invite Reward", actor_id=inviter.id
+            )
 
         await XPService.add_xp(user_id=inviter.id, amount=50, source="Invite reward")
 
-        logger.warning("Reached invite log section")
+        # --- Logging ---
+        guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
+        if not guild_settings:
+            logger.warning(f"[InviteTracker] No guild settings for {guild.id}")
+            return
 
-        # Count total invites
+        log_channel_id = guild_settings.invite_logs_channel_id
+        if not log_channel_id:
+            return
+
+        log_channel = guild.get_channel(int(log_channel_id))
+        if not log_channel:
+            logger.warning(f"[InviteTracker] Log channel {log_channel_id} not found in {guild.id}")
+            return
+
         count = await Database.invite_joins().count_documents(
             {"guild_id": guild.id, "inviter_id": inviter.id}
         )
 
-        logger.warning(f"Invite Join {inviter.mention}'s invite! {count}")
-
-        guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
-        logger.warning(f"Guild settings: {guild_settings}")
-        if not guild_settings:
-            logger.warning("Guild settings missing")
-            return
-
-        log_channel_id = guild_settings.invite_logs_channel_id
-        logger.warning(f"log_channel_id raw: {guild_settings.invite_logs_channel_id}")
-
-        if not log_channel_id:
-            logger.warning("Invite log channel not configured")
-            return
-
-        log_channel = guild.get_channel(int(log_channel_id))
-        logger.warning(f"Resolved channel: {log_channel}")
-        if not log_channel:
-            logger.warning(f"Log channel {log_channel_id} not found in guild")
-            return
-
         embed = discord.Embed(
             title="🎉 New Invite Join",
             description=f"{member.mention} joined using {inviter.mention}'s invite!",
-            color=discord.Color.green()
+            color=discord.Color.green(),
         )
-
-        embed.add_field(
-            name="Inviter Total",
-            value=f"Total **{count}** invites",
-            inline=True
-        )
-
+        embed.add_field(name="Inviter Total", value=f"**{count}** total invites", inline=True)
         if reward_message:
-            embed.add_field(
-                name="Invite Reward",
-                value=reward_message,
-                inline=True
-            )
+            embed.add_field(name="Invite Reward", value=reward_message, inline=True)
 
         await log_channel.send(embed=embed)

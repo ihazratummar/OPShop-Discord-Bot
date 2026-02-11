@@ -2,6 +2,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from core.database import Database
+from loguru import logger
+
+from core.models.user import User
 from modules.invite_tracker.service import InviteTrackerService
 
 
@@ -13,41 +16,40 @@ class InviteTrackerCog(commands.Cog):
     async def on_member_join(self, member: discord.Member):
         guild = member.guild
 
-        old = InviteTrackerService.cache.get(guild.id, {})
-        new_invites = await guild.invites()
-
-        used_invite = None
-
-        for invite in new_invites:
-            if invite.uses > old.get(invite.code, 0):
-                used_invite = invite
-                break
-
-        # update cache + DB snapshot
-        InviteTrackerService.cache[guild.id] = {}
-
-        for invite in new_invites:
-            InviteTrackerService.cache[guild.id][invite.code] = invite.uses
-
-            await  Database.invites().update_one(
-                {"guild_id": guild.id},
-                {"$set":{
-                    "uses": invite.uses,
-                    "inviter_id": invite.inviter.id if invite.inviter else None,
-                }},
-                upsert= True
-            )
+        # Serialize per-guild so two simultaneous joins don't race each other
+        async with InviteTrackerService._get_lock(guild.id):
+            used_invite = await InviteTrackerService.detect_used_invite(guild)
 
         if not used_invite:
+            logger.warning(f"[InviteTracker] Could not detect invite for {member.id} in {guild.id}")
             return
 
-        inviter = used_invite.inviter
-        inviter_member = guild.get_member(inviter.id)
+        if not used_invite.inviter:
+            logger.warning(f"[InviteTracker] Invite {used_invite.code} has no inviter (vanity/server discovery?)")
+            return
+
+        # inviter may not be a Member (could have left the guild), fall back to User
+        inviter = guild.get_member(used_invite.inviter.id) or used_invite.inviter
+
+        user = User(
+            discord_id= member.id,
+            username= member.display_name,
+            tokens=0,
+            xp=0,
+            level=1,
+            reputations=0,
+            rep_given_counter=0,
+        )
+        await Database.users().update_one(
+            {"discord_id": member.id},
+            {"$setOnInsert": user.to_mongo()},
+            upsert=True,
+        )
 
         await InviteTrackerService.process_join(
-            member= member,
-            inviter= inviter_member,
-            guild= guild
+            member=member,
+            inviter=inviter,
+            guild=guild,
         )
 
     @app_commands.command(name="set_invite_logs_channel", description="Set a logs channel for invite tracker")

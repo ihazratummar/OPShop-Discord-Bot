@@ -23,7 +23,7 @@ class EconomyService:
             return User(**doc)
         
         # Create new user
-        new_user = User(discord_id=user_id, username=username)
+        new_user = User(discord_id=user_id, username=username, tokens=0, xp=0, level=1, reputations=0, rep_given_counter=0)
         await Database.users().insert_one(new_user.to_mongo())
         return new_user
 

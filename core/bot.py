@@ -75,6 +75,23 @@ class ShopBot(commands.Bot):
         for guild in self.guilds:
             await  InviteTrackerService.cache_guild(guild=guild)
 
+    async def on_guild_join(self, guild: discord.Guild):
+        """Seed tje cache when bot joins a new guild."""
+        await InviteTrackerService.cache_guild(guild=guild)
+
+    async def on_invite_create(self, invite: discord.Invite):
+        """Keep cache fresh when a new invite is created."""
+        guild= invite.guild
+        async with InviteTrackerService._get_lock(guild_id=guild.id):
+            InviteTrackerService._cache.setdefault(guild.id, {})[invite.code] = invite.uses
+
+    async def on_invite_delete(self, invite: discord.Invite):
+        """Remove deleted invite from cache to avoid stale diffs."""
+        guild = invite.guild
+        async with InviteTrackerService._get_lock(guild.id):
+            InviteTrackerService._cache.get(guild.id, {}).pop(invite.code, None)
+
+
     async def close(self):
         """Called when bot is shutting down."""
         logger.info("Shutting down...")

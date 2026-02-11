@@ -477,7 +477,7 @@ class CustomTicketButton(Button):
 class ShopPanelView(View):
     """Persistent view with a button to open the Shop."""
 
-    def __init__(self, button_label: str = "🛒 Open Shop", button_emoji: str = None):
+    def __init__(self, button_label: str = "Open Shop", button_emoji: str = None):
         super().__init__(timeout=None)
         self.add_item(ShopPanelButton(label=button_label, emoji=button_emoji))
 
@@ -504,7 +504,7 @@ class ShopPanelButton(Button):
             await view.init_view()
 
             categories = await CategoryService.get_active_categories()
-            embed = await get_root_embed(categories)
+            embed = await get_root_embed(categories= categories)
 
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         except Exception as e:

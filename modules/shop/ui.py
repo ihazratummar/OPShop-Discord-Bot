@@ -15,14 +15,17 @@ PAGE_SIZE = 20
 
 
 # --- Helper Methods ---
-async def get_root_embed(categories: list, page: int = 0) -> discord.Embed:
+async def get_root_embed(
+        categories: list,
+        page: int = 0
+) -> discord.Embed:
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
     visible_cats = categories[start:end]
     total = len(categories)
 
     embed = discord.Embed(
-        title="🛒 OP Shop",
+        title="OP Shop",
         description=f"Browse our categories below.\nPage {page + 1}/{(total // PAGE_SIZE) + 1}",
         color=discord.Color.blue()
     )
@@ -149,7 +152,7 @@ class ShopRootView(View):
         self.add_item(self.prev_btn)
         self.add_item(self.next_btn)
 
-        embed = await get_root_embed(categories, self.page)
+        embed = await get_root_embed(categories=categories, page = self.page)
 
         if initial_setup: return
 
@@ -382,12 +385,12 @@ class OrderNowView(View):
 class ItemOrderView(View):
     """Persistent view with Order button for item-specific panels."""
 
-    def __init__(self, item_id: str, button_name : str = None,  button_emoji: str = None):
+    def __init__(self, item_id: str, button_name: str = None, button_emoji: str = None):
         super().__init__(timeout=None)
         self.item_id = item_id
         self.button_emoji = button_emoji
         self.button_name = button_name
-        self.add_item(ItemOrderButton(item_id = item_id, button_emoji = self.button_emoji, button_name = self.button_name))
+        self.add_item(ItemOrderButton(item_id=item_id, button_emoji=self.button_emoji, button_name=self.button_name))
 
 
 class ItemOrderButton(Button):
@@ -397,7 +400,7 @@ class ItemOrderButton(Button):
         super().__init__(
             label=button_name,
             style=discord.ButtonStyle.green,
-            emoji= button_emoji,
+            emoji=button_emoji,
             custom_id=f"item_order:{item_id}"
         )
         self.item_id = item_id
@@ -443,7 +446,7 @@ class ItemOrderButton(Button):
                 if item.image_url:
                     embed.set_thumbnail(url=item.image_url)
 
-                emoji = GuildSettingService.get_server_emoji(int(Emoji.SHOP_TOKEN.value), guild= interaction.guild)
+                emoji = GuildSettingService.get_server_emoji(int(Emoji.SHOP_TOKEN.value), guild=interaction.guild)
                 embed.add_field(name="Price", value=f"{item.price:,.0f} {emoji if emoji else "🪙"}", inline=True)
                 embed.add_field(name="Category", value=category_path, inline=True)
 
@@ -455,7 +458,9 @@ class ItemOrderButton(Button):
                         seller_role = interaction.guild.get_role(seller_role_id)
 
                 view = TicketControlView(str(ticket.id), is_item_ticket=True)
-                message = await channel.send(content=f"{interaction.user.mention} {seller_role.mention if seller_role else ""}", embed=embed, view=view)
+                message = await channel.send(
+                    content=f"{interaction.user.mention} {seller_role.mention if seller_role else ""}", embed=embed,
+                    view=view)
                 await Database.tickets().update_one(
                     {"_id": ticket.id},
                     {"$set": {"message_id": message.id}},
@@ -656,13 +661,13 @@ class ItemLocationSelect(Select):
             # We use the item_id as value
             options.append(
                 discord.SelectOption(
-                    label=item.name[:100], 
-                    value=str(item.id), 
+                    label=item.name[:100],
+                    value=str(item.id),
                     emoji="📍",
                     description=f"Find: {item.name[:50]}"
                 )
             )
-        
+
         super().__init__(
             placeholder="🔍 Select an item to find its channel...",
             min_values=1,
@@ -674,20 +679,20 @@ class ItemLocationSelect(Select):
     async def callback(self, interaction: discord.Interaction):
         # Defer immediately to allow multiple actions (edit + send)
         await interaction.response.defer(ephemeral=True)
-        
+
         # Reset the dropdown state by editing the message with the same view
         # This clears the user's selection on the client side
         await interaction.message.edit(view=self.view)
 
         item_id = self.values[0]
-        
+
         # 1. Get Item Name from ID
         from modules.shop.services import ItemService
         item = await ItemService.get_item(item_id)
-        
+
         if not item:
-             await interaction.followup.send("❌ Item not found in database.", ephemeral=True)
-             return
+            await interaction.followup.send("❌ Item not found in database.", ephemeral=True)
+            return
 
         # 2. Search for channel by Name
         # Logic: Channel name should match Item name (slugified)
@@ -701,16 +706,16 @@ class ItemLocationSelect(Select):
         target_name = re.sub(r'-+', '-', target_name)
         # Strip leading/trailing dashes
         target_name = target_name.strip("-")
-        
+
         target_channel = discord.utils.get(interaction.guild.text_channels, name=target_name)
-        
+
         # If exact match fails, try partial match (e.g. "tek-cave" in "🪙│tek-cave")
         if not target_channel:
-             for channel in interaction.guild.text_channels:
-                 if target_name in channel.name:
-                     target_channel = channel
-                     break
-        
+            for channel in interaction.guild.text_channels:
+                if target_name in channel.name:
+                    target_channel = channel
+                    break
+
         if target_channel:
             view = discord.ui.View()
             view.add_item(
@@ -731,6 +736,7 @@ class ItemLocationSelect(Select):
                 ephemeral=True
             )
 
+
 class ItemDirectoryView(View):
     def __init__(self, directory_items: list):
         super().__init__(timeout=None)
@@ -738,23 +744,23 @@ class ItemDirectoryView(View):
         self.page = 0
         self.per_page = 25
         self.max_page = max(0, (len(self.all_items) - 1) // self.per_page)
-        
+
         self.update_view()
 
     def update_view(self):
         self.clear_items()
-        
+
         # Calculate slice
         start = self.page * self.per_page
         end = start + self.per_page
         current_items = self.all_items[start:end]
-        
+
         # Add Select Menu
         if current_items:
             self.add_item(ItemLocationSelect(current_items))
         else:
-             # Should not happen if list is not empty, but if empty list passed...
-             pass
+            # Should not happen if list is not empty, but if empty list passed...
+            pass
 
         # Navigation Buttons
         # Only show if there's more than one page
@@ -768,7 +774,7 @@ class ItemDirectoryView(View):
             )
             prev_btn.callback = self.prev_page
             self.add_item(prev_btn)
-            
+
             # Indicator
             indicator = discord.ui.Button(
                 style=discord.ButtonStyle.secondary,
@@ -794,7 +800,7 @@ class ItemDirectoryView(View):
             self.update_view()
             await interaction.response.edit_message(view=self)
         else:
-             await interaction.response.defer()
+            await interaction.response.defer()
 
     async def next_page(self, interaction: discord.Interaction):
         if self.page < self.max_page:
@@ -802,4 +808,4 @@ class ItemDirectoryView(View):
             self.update_view()
             await interaction.response.edit_message(view=self)
         else:
-             await interaction.response.defer()
+            await interaction.response.defer()

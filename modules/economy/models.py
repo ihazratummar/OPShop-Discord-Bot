@@ -20,4 +20,4 @@ class Transaction(MongoModel):
 class EconomyConfig(MongoModel):
     tax_rate: float = Field(default=0.0, description="Tax rate for transfers (0.0 - 1.0)")
     xp_multiplier: float = Field(default=1.0, description="Global XP multiplier")
-    currency_name: str = Field(default="Credits", description="Name of the main currency")
+    currency_name: str = Field(default="tokens", description="Name of the main currency")
