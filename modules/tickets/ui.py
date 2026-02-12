@@ -295,23 +295,6 @@ class TicketClosedView(View):
     async def delete_ticket_btn(self, interaction: discord.Interaction):
         from modules.tickets.services import TicketService
         await TicketService.delete_ticket_btn(interaction=interaction)
-        # await interaction.response.defer(ephemeral=True)
-        # from modules.tickets.services import TicketService
-        # manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
-        # member = interaction.user
-        # allowed = (
-        #         member.id == settings.owner_id
-        #         or any(role.id == manager_role.id for role in member.roles)
-        #         or member.guild_permissions.administrator
-        # )
-        #
-        # if not allowed:
-        #     await interaction.followup.send("You are not allowed to do that!")
-        #     return
-        #
-        # ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
-        # await TicketService.delete_ticket(ticket=ticket, delete_by_user=interaction.user.id, guild=interaction.guild)
-        # await interaction.channel.delete(reason="Ticket Deleted")
 
 
 class EmbedJsonModal(Modal):

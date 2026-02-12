@@ -101,7 +101,7 @@ class ReputationService:
                     actor_id=message.author.id,
                 )
 
-                await message.reply(f"<a:arrow:1468247068240777238> {message.author.mention} has earned +1 rep <a:bluestar:1468261614200422471> for participating in a smooth trade and crediting the merchant")
+                await message.reply(f"<a:arrow:1468247068240777238> {message.author.mention} has earned +1 <a:bluestar:1468261614200422471> reputation for doing several smooth trades and crediting the seller(s)")
 
         except Exception as e:
             logger.error(f"Error in bonus logic: {e}")

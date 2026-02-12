@@ -5,10 +5,8 @@ import discord
 
 from core.constant import Emoji
 from core.database import Database, logger
-from modules.economy.models import Transaction
-from modules.economy.services import EconomyService, TransactionService
+from modules.economy.services import EconomyService
 from modules.guild.service import GuildSettingService
-from modules.invite_tracker.models import InviteJoins
 from modules.reputation.service import ReputationService
 from modules.xp.services import XPService
 
@@ -126,34 +124,29 @@ class InviteTrackerService:
             upsert=True,
         )
 
-        # If no document was inserted, this is a rejoin — skip rewards
-        if result.upserted_id is None:
-            logger.info(f"[InviteTracker] Rejoin detected for {member.id} in {guild.id}, skipping.")
-            return
+        # Check if this is a rejoin
+        is_rejoin = result.upserted_id is None
 
-        # --- Rewards ---
-        reward_message: str | None = None
-
-        seller_role = await GuildSettingService.get_seller_role(guild=guild)
-        # guild.get_member() only works if the inviter is still in the guild.
-        # inviter may be a plain discord.User when fetched from invite.inviter.
-        inviter_member = guild.get_member(inviter.id)
-        has_seller_role = inviter_member and seller_role in inviter_member.roles
-
-        if has_seller_role:
-            emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
-            reward_message = f"{emoji or '🔮'} +1 reputation!"
-            await ReputationService.add_rep(user_id=inviter.id, guild=guild)
+        if is_rejoin:
+            logger.info(f"[InviteTracker] Rejoin detected for {member.id} in {guild.id}, skipping rewards.")
         else:
-            emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
-            reward_message = f"{emoji or '🪙'} 10 Shop Tokens"
-            await EconomyService.modify_tokens(
-                user_id=inviter.id, amount=10, reason="Invite Reward", actor_id=inviter.id
-            )
+            # --- Rewards (only for new joins) ---
+            seller_role = await GuildSettingService.get_seller_role(guild=guild)
+            # guild.get_member() only works if the inviter is still in the guild.
+            # inviter may be a plain discord.User when fetched from invite.inviter.
+            inviter_member = guild.get_member(inviter.id)
+            has_seller_role = inviter_member and seller_role in inviter_member.roles
 
-        await XPService.add_xp(user_id=inviter.id, amount=50, source="Invite reward")
+            if has_seller_role:
+                await ReputationService.add_rep(user_id=inviter.id, guild=guild)
+            else:
+                await EconomyService.modify_tokens(
+                    user_id=inviter.id, amount=10, reason="Invite Reward", actor_id=inviter.id
+                )
 
-        # --- Logging ---
+            await XPService.add_xp(user_id=inviter.id, amount=50, source="Invite reward")
+
+        # --- Logging (for both new joins and rejoins) ---
         guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
         if not guild_settings:
             logger.warning(f"[InviteTracker] No guild settings for {guild.id}")
@@ -172,13 +165,38 @@ class InviteTrackerService:
             {"guild_id": guild.id, "inviter_id": inviter.id}
         )
 
-        embed = discord.Embed(
-            title="🎉 New Invite Join",
-            description=f"{member.mention} joined using {inviter.mention}'s invite!",
-            color=discord.Color.green(),
-        )
-        embed.add_field(name="Inviter Total", value=f"**{count}** total invites", inline=True)
-        if reward_message:
-            embed.add_field(name="Invite Reward", value=reward_message, inline=True)
+        # Build embed based on join type
+        if is_rejoin:
+            embed = discord.Embed(
+                title="🔄 Member Rejoined",
+                description=f"{member.mention} rejoined using {inviter.mention}'s invite!",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="Inviter Total", value=f"**{count}** total invites", inline=True)
+            embed.add_field(name="Note", value="No rewards given for rejoins", inline=True)
+        else:
+            # Build reward message
+            reward_message: str | None = None
+            seller_role = await GuildSettingService.get_seller_role(guild=guild)
+            inviter_member = guild.get_member(inviter.id)
+            has_seller_role = inviter_member and seller_role in inviter_member.roles
+
+            if has_seller_role:
+                emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
+                reward_message = f"{emoji or '🔮'} +1 reputation!"
+            else:
+                emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
+                reward_message = f"{emoji or '🪙'} 10 Shop Tokens"
+
+            reward_message += f"\n{GuildSettingService.get_server_emoji(emoji_id=int(Emoji.XP.value), guild=guild) or '⭐'} +50 XP"
+
+            embed = discord.Embed(
+                title="🎉 New Invite Join",
+                description=f"{member.mention} joined using {inviter.mention}'s invite!",
+                color=discord.Color.green(),
+            )
+            embed.add_field(name="Inviter Total", value=f"**{count}** total invites", inline=True)
+            if reward_message:
+                embed.add_field(name="Invite Reward", value=reward_message, inline=True)
 
         await log_channel.send(embed=embed)

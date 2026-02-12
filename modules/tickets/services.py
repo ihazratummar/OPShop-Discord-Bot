@@ -704,6 +704,12 @@ class TicketService:
     @staticmethod
     async def complete_order(interaction: discord.Interaction, root_view):
         await interaction.response.defer(ephemeral=True)
+
+        for item in root_view.children:
+            if item.custom_id == f"complete_order_ticket_{root_view.ticket_id}":
+                item.disabled = True
+                break
+
         ## Check Access
         manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
         seller_role = await GuildSettingService.get_seller_role(guild=interaction.guild)
@@ -810,7 +816,11 @@ class TicketService:
             embed = message.embeds[0]
 
         await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
-        await message.edit(view=TicketClosedView(ticket_id=str(ticket.id), root_view=root_view), embed=embed)
+        await message.edit(
+            content="# Thank you for shopping at op shop",
+            view=TicketClosedView(ticket_id=str(ticket.id),root_view=root_view),
+            embed=embed
+        )
         await interaction.followup.send("Order completed! formatting transcript...", ephemeral=True)
 
     @staticmethod
@@ -849,7 +859,7 @@ class TicketService:
             embed = message.embeds[0]
 
         await interaction.followup.send("Closing ticket...", ephemeral=True)
-        await message.edit(view=TicketClosedView(ticket_id=str(ticket.id), root_view= root_view), embed= embed)
+        await message.edit(view=TicketClosedView(ticket_id=str(ticket.id), root_view=root_view), embed=embed)
         await interaction.channel.send(f"🔒 **Ticket Closed** by {interaction.user.mention}. Closing in 5 seconds.")
 
     @staticmethod
@@ -881,7 +891,8 @@ class TicketService:
                 return
             ticket, status = await TicketService.claim_ticket(ticket, interaction.user.id, interaction.guild)
             if not status:
-                await interaction.followup.send(f"Ticket already claimed by {interaction.user.mention}!", ephemeral=True)
+                await interaction.followup.send(f"Ticket already claimed by {interaction.user.mention}!",
+                                                ephemeral=True)
                 return
         else:
             await interaction.followup.send(f"Ticket not found!", ephemeral=True)
@@ -1041,7 +1052,6 @@ class TicketService:
 
         await interaction.followup.send("Ticket unclaimed successfully!", ephemeral=True)
 
-
     @staticmethod
     async def delete_ticket_btn(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -1055,7 +1065,9 @@ class TicketService:
         )
 
         if not allowed:
-            await interaction.followup.send("You are not allowed to do delete a ticket! Only administrators and ticket managers are allowed!", ephemeral=True)
+            await interaction.followup.send(
+                "You are not allowed to do delete a ticket! Only administrators and ticket managers are allowed!",
+                ephemeral=True)
             return
 
         ticket = await TicketService.get_ticket_by_channel(interaction.channel_id)
