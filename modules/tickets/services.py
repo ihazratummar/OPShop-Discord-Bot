@@ -735,68 +735,68 @@ class TicketService:
         if ticket.related_item_id:
             item = await ItemService.get_item(ticket.related_item_id)
 
-        # 3. Log Transaction
-        txn = Transaction(
-            user_id=ticket.user_id,
-            type='purchase',
-            amount_tokens=item.price if item and item.currency == 'tokens' else 0,
-            item_id=str(item.id) if item else None,
-            item_name=item.name if item else "Custom Order",
-            performed_by=interaction.user.id
-        )
-        asyncio.create_task(TransactionService.log_transaction(txn))
+        # # 3. Log Transaction
+        # txn = Transaction(
+        #     user_id=ticket.user_id,
+        #     type='purchase',
+        #     amount_tokens=item.price if item and item.currency == 'tokens' else 0,
+        #     item_id=str(item.id) if item else None,
+        #     item_name=item.name if item else "Custom Order",
+        #     performed_by=interaction.user.id
+        # )
+        # asyncio.create_task(TransactionService.log_transaction(txn))
 
         # 3.5 Award Rewards (Tokens & XP)
         # Tokens
-        ticket_user = interaction.guild.get_member(ticket.user_id)
+        # ticket_user = interaction.guild.get_member(ticket.user_id)
 
-        if item:
-            tasks = []
-            if item.token_reward > 0:
-                tasks.append(
-                    EconomyService.modify_tokens(
-                        ticket.user_id,
-                        item.token_reward,
-                        f"Reward for purchasing {item.name}",
-                        interaction.user.id
-                    )
-                )
-                emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value),
-                                                             guild=interaction.guild)
-                tasks.append(
-                    interaction.channel.send(
-                        f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {emoji if emoji else "🪙"} Tokens!")
-                )
-
-                tasks.append(
-                    ReputationService.add_rep(
-                        user_id=interaction.user.id,
-                        guild=interaction.guild,
-                        reputation_amount=1
-                    )
-                )
-                tasks.append(
-                    interaction.channel.send(
-                        f"{interaction.user.mention} has earned +1 Reputation <a:bluestar:1468261614200422471>.")
-                )
-                await asyncio.gather(*tasks, return_exceptions=True)
-        else:
-            await EconomyService.modify_tokens(
-                ticket.user_id,
-                10,
-                f"Reward for purchasing",
-                interaction.user.id
-            )
-            emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=interaction.guild)
-            await interaction.channel.send(f"🎉 {ticket_user.mention} rewarded **10** {emoji if emoji else "🪙"} Tokens!")
-
-            await ReputationService.add_rep(
-                user_id=interaction.user.id,
-                guild=interaction.guild,
-                reputation_amount=1
-            )
-            await interaction.channel.send(
-                f"{interaction.user.mention} has earned +1 Reputation <a:bluestar:1468261614200422471>.")
+        # if item:
+        #     tasks = []
+        #     if item.token_reward > 0:
+        #         tasks.append(
+        #             EconomyService.modify_tokens(
+        #                 ticket.user_id,
+        #                 item.token_reward,
+        #                 f"Reward for purchasing {item.name}",
+        #                 interaction.user.id
+        #             )
+        #         )
+        #         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value),
+        #                                                      guild=interaction.guild)
+        #         tasks.append(
+        #             interaction.channel.send(
+        #                 f"🎉 {ticket_user.mention} rewarded **{item.token_reward}** {emoji if emoji else "🪙"} Tokens!")
+        #         )
+        #
+        #         tasks.append(
+        #             ReputationService.add_rep(
+        #                 user_id=interaction.user.id,
+        #                 guild=interaction.guild,
+        #                 reputation_amount=1
+        #             )
+        #         )
+        #         tasks.append(
+        #             interaction.channel.send(
+        #                 f"{interaction.user.mention} has earned +1 Reputation <a:bluestar:1468261614200422471>.")
+        #         )
+        #         await asyncio.gather(*tasks, return_exceptions=True)
+        # else:
+        #     await EconomyService.modify_tokens(
+        #         ticket.user_id,
+        #         10,
+        #         f"Reward for purchasing",
+        #         interaction.user.id
+        #     )
+        #     emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=interaction.guild)
+        #     await interaction.channel.send(f"🎉 {ticket_user.mention} rewarded **10** {emoji if emoji else "🪙"} Tokens!")
+        #
+        #     await ReputationService.add_rep(
+        #         user_id=interaction.user.id,
+        #         guild=interaction.guild,
+        #         reputation_amount=1
+        #     )
+        #     await interaction.channel.send(
+        #         f"{interaction.user.mention} has earned +1 Reputation <a:bluestar:1468261614200422471>.")
 
         # 4. Close Ticket
 
