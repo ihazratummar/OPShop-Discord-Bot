@@ -154,7 +154,7 @@ class ReputationService:
 
         await EconomyService.modify_tokens(
             user_id=from_user_id,
-            amount=1,
+            amount=10,
             reason="Reputation added",
             actor_id=from_user_id,
         )
