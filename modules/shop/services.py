@@ -62,7 +62,7 @@ class CategoryService:
     @staticmethod
     async def get_category_stats_batch(category_ids: List[str]) -> dict:
         """
-        Fetch item and subcategory counts for a list of categories efficiently.
+        Fetch item and subcategory counts for a list of categories efficiently.\
         Returns: {category_id: {'items': count, 'subcats': count}}
         """
         if not category_ids:

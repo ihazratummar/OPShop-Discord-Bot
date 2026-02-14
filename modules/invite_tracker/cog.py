@@ -15,25 +15,11 @@ class InviteTrackerCog(commands.Cog):
     @commands.Cog.listener(name="on_member_join")
     async def on_member_join(self, member: discord.Member):
         guild = member.guild
-
-        # Serialize per-guild so two simultaneous joins don't race each other
-        async with InviteTrackerService._get_lock(guild.id):
-            used_invite = await InviteTrackerService.detect_used_invite(guild)
-
-        if not used_invite:
-            logger.warning(f"[InviteTracker] Could not detect invite for {member.id} in {guild.id}")
-            return
-
-        if not used_invite.inviter:
-            logger.warning(f"[InviteTracker] Invite {used_invite.code} has no inviter (vanity/server discovery?)")
-            return
-
-        # inviter may not be a Member (could have left the guild), fall back to User
-        inviter = guild.get_member(used_invite.inviter.id) or used_invite.inviter
-
+        
+        # 1. Always ensure User exists in DB
         user = User(
-            discord_id= member.id,
-            username= member.display_name,
+            discord_id=member.id,
+            username=member.display_name,
             tokens=0,
             xp=0,
             level=1,
@@ -46,6 +32,35 @@ class InviteTrackerCog(commands.Cog):
             upsert=True,
         )
 
+        # 2. Detect used invite
+        # Serialize per-guild so two simultaneous joins don't race each other
+        async with InviteTrackerService._get_lock(guild.id):
+            used_invite = await InviteTrackerService.detect_used_invite(guild)
+
+        inviter = None
+
+        if used_invite:
+            # We found a specific invite!
+            if used_invite.inviter:
+                inviter = guild.get_member(used_invite.inviter.id) or used_invite.inviter
+            else:
+                logger.warning(f"[InviteTracker] Invite {used_invite.code} has no inviter (vanity/server discovery?)")
+        else:
+            # Fallback: Invite unknown (race condition, bot restart, etc.)
+            # Check if this is a rejoin to recover original inviter
+            join_data = await InviteTrackerService.get_join_data(member.id, guild.id)
+            if join_data:
+                logger.info(f"[InviteTracker] {member.id} rejoined {guild.id} (Invite unknown/expired)")
+                inviter_id = join_data.get("inviter_id")
+                if inviter_id:
+                    try:
+                        inviter = await self.bot.fetch_user(inviter_id)
+                    except discord.NotFound:
+                        inviter = None
+            else:
+                logger.warning(f"[InviteTracker] Unknown invite for {member.id} in {guild.id}")
+
+        # 3. Process the join (logs, rewards, etc.)
         await InviteTrackerService.process_join(
             member=member,
             inviter=inviter,
