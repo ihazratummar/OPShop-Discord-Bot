@@ -79,7 +79,7 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
     else:
         for item in visible_items:
             status = "🟢" if item.is_active else "🔴"
-            item_list += f"{status} **{item.name}** - {item.price:,.0f} {item.currency}\n"
+            item_list += f"{status} **{item.name}** - {item.price} {item.currency}\n"
         
         page_count = (total_items // PAGE_SIZE) + 1
         embed.set_footer(text=f"Page {page+1}/{page_count} | Total Items: {total_items}")
@@ -96,7 +96,7 @@ async def get_item_embed(item: Item, category_name: str) -> discord.Embed:
     if item.image_url:
         embed.set_image(url=item.image_url)
         
-    embed.add_field(name="Price", value=f"{item.price:,.0f} {item.currency.title()}", inline=True)
+    embed.add_field(name="Price", value=f"{item.price} {item.currency.title()}", inline=True)
     embed.add_field(name="Category", value=category_name, inline=True)
     embed.add_field(name="Status", value="Active" if item.is_active else "Inactive", inline=True)
     

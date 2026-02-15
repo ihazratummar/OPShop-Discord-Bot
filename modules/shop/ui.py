@@ -24,16 +24,20 @@ async def get_root_embed(
     visible_cats = categories[start:end]
     total = len(categories)
 
+    description = f"Browse our categories below.\nPage {page + 1}/{(total // PAGE_SIZE) + 1}\n\n"
+    if categories:
+        description += f"### Categories"
+    else:
+        description += f"There are no categories."
+
+
     embed = discord.Embed(
         title="OP Shop",
-        description=f"Browse our categories below.\nPage {page + 1}/{(total // PAGE_SIZE) + 1}",
+        description=f"\n\n{description}",
         color=discord.Color.blue()
     )
 
-    desc_list = ""
-    if not categories:
-        desc_list = "No categories available."
-    else:
+    if categories:
         # Optimization: Fetch all counts in one go
         cat_ids = [str(c.id) for c in visible_cats]
         stats = await CategoryService.get_category_stats_batch(cat_ids)
@@ -43,14 +47,19 @@ async def get_root_embed(
             count = cat_stat['items']
             sub_count = cat_stat['subcats']
 
-            desc = f"• **{cat.name}**"
-            if sub_count > 0:
-                desc += f" ({sub_count} subcats, {count} items)"
+            desc = ""
+            if sub_count > 0  and count > 0:
+                desc += f"> {sub_count} Sub-Categories {count} Items"
+            elif sub_count > 0:
+                desc += f"> {sub_count} Sub-Categories "
+            elif count > 0:
+                desc += f"> {count} Items"
             else:
-                desc += f" ({count} items)"
-            desc_list += desc + "\n"
+                desc += f">>> Coming Soon"
 
-    embed.add_field(name="Categories", value=desc_list, inline=False)
+            embed.add_field(name=cat.name, value=desc, inline=False)
+
+
     embed.set_footer(text="Select a category to view items.")
     return embed
 
@@ -88,7 +97,7 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
         item_list = "*No items available.*"
     else:
         for item in visible_items:
-            item_list += f"• **{item.name}** - {item.price:,.0f} {item.currency}\n"
+            item_list += f"• **{item.name}** - {item.price} {item.currency.title()}\n\n"
 
         page_count = (total_items // PAGE_SIZE) + 1
         embed.set_footer(text=f"Page {page + 1}/{page_count} | Select an item to buy.")
