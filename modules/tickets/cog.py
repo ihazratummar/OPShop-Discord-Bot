@@ -2,16 +2,39 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from loguru import logger
+
+from core.bot import ShopBot
 from modules.tickets.ui import get_ticket_settings_embed, TicketSettingsView, TicketControlView, TicketClosedView, \
     EmbedJsonModal, ShopPanelView
 
 
 class TicketsCog(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: ShopBot = bot
+        self._registered_views: list[discord.ui.View] = []
+
+    def _clear_views(self):
+        for view in self._registered_views:
+            view.stop()
+        self._registered_views.clear()
 
     async def cog_load(self) -> None:
         logger.info(f"Loading {TicketsCog.__name__}")
+        await self.refresh_cog()
+        self.bot.scheduler.add_job(
+            self.refresh_cog,
+            trigger="interval",
+            hours=1,
+            id="ticket_refresh",
+            replace_existing=True,
+        )
+
+    async def cog_unload(self) -> None:
+        logger.info(f"Unloading {TicketsCog.__name__}")
+        self.bot.scheduler.remove_job("ticket_refresh")
+
+
+    async def refresh_cog(self):
         from modules.tickets.services import TicketService
         tickets = await TicketService.get_all_tickets()
         count = 0
@@ -22,11 +45,8 @@ class TicketsCog(commands.Cog):
                 closed_view = TicketClosedView(ticket_id=str(ticket.id))
                 self.bot.add_view(view)
                 self.bot.add_view(closed_view)
-
         # Register persistent ShopPanelView
         self.bot.add_view(ShopPanelView())
-        
-        logger.info(f"Loaded {count} tickets")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

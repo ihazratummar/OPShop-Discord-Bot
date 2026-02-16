@@ -3,11 +3,10 @@ import time
 import discord
 from discord import app_commands
 from discord.ext import commands
-
 from loguru import logger
+
 from modules.admin.ui import AdminRootView, get_root_embed, EmbedJsonModal
 from modules.shop.services import CategoryService
-
 
 
 class AdminCog(commands.Cog):
@@ -31,22 +30,6 @@ class AdminCog(commands.Cog):
             logger.error(f"Error in /shop-admin command: {e}", exc_info=True)
             await interaction.followup.send("Failed to open admin panel.", ephemeral=True)
 
-    @app_commands.command(name="shop-config", description="Configure Economy Rules (Tax, XP, Currency)")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def shop_config(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        try:
-            from modules.economy.services import EconomyConfigService
-            from modules.economy.ui import EconomyRulesView
-
-            config = await EconomyConfigService.get_config()
-            view = EconomyRulesView()
-            embed = view.get_embed(config)
-
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        except Exception as e:
-            logger.error(f"Error in /shop-config command: {e}", exc_info=True)
-            await interaction.followup.send("Failed to open config.", ephemeral=True)
 
     @app_commands.command(name="shop-post-panel",
                           description="Post a persistent Shop Panel with custom embed to a channel")

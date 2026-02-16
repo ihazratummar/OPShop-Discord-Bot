@@ -9,7 +9,7 @@ from loguru import logger
 from modules.economy.services import EconomyService
 from modules.guild.service import GuildSettingService
 from modules.reputation.models import ReputationLogs, ReputationTier
-from modules.xp.services import XPService
+from modules.profile.services import ProfileService
 
 
 class ReputationService:
@@ -134,9 +134,6 @@ class ReputationService:
             message=message
         )
         await Database.reputations_logs().insert_one(rep.to_mongo())
-        await XPService.add_xp(user_id=target_user_id, amount=reputation_amount * 10, source="reputation")
-        if not is_admin:
-            await XPService.add_xp(user_id=from_user_id, amount=10, source="reputation")
 
         await Database.users().update_one(
             {"discord_id": target_user_id},

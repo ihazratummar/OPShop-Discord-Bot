@@ -118,7 +118,6 @@ async def get_item_embed(item: Item) -> discord.Embed:
     embed.add_field(name="Price", value=f"{item.price:,.0f} {item.currency.title()}", inline=True)
 
     rewards = []
-    if item.xp_reward > 0: rewards.append(f"+{item.xp_reward} XP")
     if item.token_reward > 0: rewards.append(f"+{item.token_reward} Tokens")
     if rewards:
         embed.add_field(name="Rewards", value=" | ".join(rewards), inline=True)

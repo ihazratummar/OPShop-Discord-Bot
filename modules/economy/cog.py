@@ -44,8 +44,6 @@ class EconomyCog(commands.Cog):
             await interaction.response.send_message("An unexpected error occurred.", ephemeral=True)
 
     # --- Admin Commands ---
-    
-    from modules.audit.services import AuditLogService
 
 
     # ... User Commands omitted for brevity ...

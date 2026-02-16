@@ -1,6 +1,7 @@
+from typing import Optional, Literal
 from pydantic import Field
 from core.models.base import MongoModel
-from typing import Optional, Literal
+
 
 class Transaction(MongoModel):
     user_id: int = Field(..., description="Buyer Discord ID")
@@ -16,8 +17,3 @@ class Transaction(MongoModel):
     
     # Metadata
     performed_by: Optional[int] = Field(None, description="Discord ID of who executed this (e.g. staff member)")
-
-class EconomyConfig(MongoModel):
-    tax_rate: float = Field(default=0.0, description="Tax rate for transfers (0.0 - 1.0)")
-    xp_multiplier: float = Field(default=1.0, description="Global XP multiplier")
-    currency_name: str = Field(default="tokens", description="Name of the main currency")

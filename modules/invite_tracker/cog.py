@@ -21,8 +21,6 @@ class InviteTrackerCog(commands.Cog):
             discord_id=member.id,
             username=member.display_name,
             tokens=0,
-            xp=0,
-            level=1,
             reputations=0,
             rep_given_counter=0,
         )

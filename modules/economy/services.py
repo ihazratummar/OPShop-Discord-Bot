@@ -23,7 +23,7 @@ class EconomyService:
             return User(**doc)
         
         # Create new user
-        new_user = User(discord_id=user_id, username=username, tokens=0, xp=0, level=1, reputations=0, rep_given_counter=0)
+        new_user = User(discord_id=user_id, username=username, tokens=0, reputations=0, rep_given_counter=0)
         await Database.users().insert_one(new_user.to_mongo())
         return new_user
 
@@ -69,45 +69,8 @@ class EconomyService:
         if sender.tokens < amount:
             raise ValueError("Insufficient funds")
 
-        # Receiver ensure exists
-        await EconomyService.get_user(to_id)
-
-        # Get Tax Config
-        config = await EconomyConfigService.get_config()
-        tax_amount = 0.0
-        if config.tax_rate > 0:
-            tax_amount = amount * config.tax_rate
-            
-        receive_amount = amount - tax_amount
-
         # Updates
         await EconomyService.modify_tokens(from_id, -amount, f"Transfer to {to_id}", from_id)
-        await EconomyService.modify_tokens(to_id, int(receive_amount), f"Transfer from {from_id} (Tax: {tax_amount})", from_id)
+        await EconomyService.modify_tokens(to_id, int(amount), f"Transfer from {from_id} ", from_id)
         
         return True
-
-from modules.economy.models import EconomyConfig
-
-class EconomyConfigService:
-    @staticmethod
-    async def get_config() -> EconomyConfig:
-        """Get the singleton config, creating if not exists."""
-        collection = Database.get_db().economy_config
-        doc = await collection.find_one({})
-        if doc:
-            return EconomyConfig(**doc)
-        
-        # Create default
-        config = EconomyConfig()
-        await collection.insert_one(config.to_mongo())
-        return config
-
-    @staticmethod
-    async def update_config(updates: dict) -> EconomyConfig:
-        """Update the config."""
-        collection = Database.get_db().economy_config
-        # Ensure exists first
-        await EconomyConfigService.get_config()
-        
-        await collection.update_one({}, {"$set": updates})
-        return await EconomyConfigService.get_config()

@@ -1,4 +1,5 @@
 import discord
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
 from core.config import settings
 from core.database import Database
@@ -20,6 +21,8 @@ class ShopBot(commands.Bot):
             help_command=None,
             owner_id=settings.owner_id
         )
+
+        self.scheduler = AsyncIOScheduler()
 
     async def setup_hook(self):
         """Called when bot is logging in."""
@@ -67,6 +70,7 @@ class ShopBot(commands.Bot):
     async def on_ready(self):
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
         logger.info("Bot is ready and running!")
+        self.scheduler.start()
         await self.change_presence(
             status= discord.Status.do_not_disturb,
             activity= discord.Game(name=f"Official OP Shop bot")

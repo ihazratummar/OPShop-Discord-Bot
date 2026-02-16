@@ -19,7 +19,6 @@ class ShopCog(commands.Cog):
         category_count = 0
         item_count = 0
         custom_panel = 0
-        
         from modules.shop.services import ItemService
         
         # Pre-fetch items for directory views
@@ -61,6 +60,8 @@ class ShopCog(commands.Cog):
             else:
                 view = OrderNowView(category_id=panel.category_id)
                 category_count += 1
+
+
 
             self.bot.add_view(view, message_id=panel.message_id)
         

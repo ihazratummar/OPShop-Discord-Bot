@@ -34,7 +34,6 @@ class Item(MongoModel):
     requires_ticket: bool = True
     
     # Rewards
-    xp_reward: int = Field(default=10, ge=0)
     token_reward: int = Field(default=10, ge=0)
 
 class Category(MongoModel):
@@ -54,3 +53,4 @@ class ShopPanel(MongoModel):
     embed_json: Optional[str] = Field(default=None, description="Custom Discohook embed JSON")
     type: Optional[str] = Field(default=None, description="Shop type")
     custom_id: Optional[str] = Field(default=None, description="Button name")
+    status: Optional[Literal['active', 'expired']] = Field(default='active', description="Shop status")
