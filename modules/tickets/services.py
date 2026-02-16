@@ -818,7 +818,7 @@ class TicketService:
         await TicketService.close_ticket(ticket, interaction.user.id, interaction.client, interaction.guild)
         await message.edit(
             content="# Thank you for shopping at op shop",
-            view=TicketClosedView(ticket_id=str(ticket.id),root_view=root_view),
+            view=TicketClosedView(ticket_id=str(ticket.id)),
             embed=embed
         )
         await interaction.followup.send("Order completed! formatting transcript...", ephemeral=True)
@@ -859,7 +859,7 @@ class TicketService:
             embed = message.embeds[0]
 
         await interaction.followup.send("Closing ticket...", ephemeral=True)
-        await message.edit(view=TicketClosedView(ticket_id=str(ticket.id), root_view=root_view), embed=embed)
+        await message.edit(view=TicketClosedView(ticket_id=str(ticket.id)), embed=embed)
         await interaction.channel.send(f"🔒 **Ticket Closed** by {interaction.user.mention}. Closing in 5 seconds.")
 
     @staticmethod

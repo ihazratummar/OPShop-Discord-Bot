@@ -19,7 +19,7 @@ class TicketsCog(commands.Cog):
             if not ticket.status == "deleted":
                 view = TicketControlView(ticket_id=str(ticket.id), claimed_by=ticket.claimed_by)
                 count += 1
-                closed_view = TicketClosedView(ticket_id=str(ticket.id), root_view=view)
+                closed_view = TicketClosedView(ticket_id=str(ticket.id))
                 self.bot.add_view(view)
                 self.bot.add_view(closed_view)
 

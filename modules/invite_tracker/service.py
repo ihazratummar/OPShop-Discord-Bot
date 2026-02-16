@@ -8,7 +8,6 @@ from core.database import Database, logger
 from modules.economy.services import EconomyService
 from modules.guild.service import GuildSettingService
 from modules.reputation.service import ReputationService
-from modules.xp.services import XPService
 
 
 class InviteTrackerService:
@@ -175,7 +174,7 @@ class InviteTrackerService:
 
         # Check if this is a rejoin
         is_rejoin = result.upserted_id is None
-
+        seller_role = None
         if is_rejoin:
             logger.info(f"[InviteTracker] Rejoin detected for {member.id} in {guild.id}, skipping rewards.")
         else:
@@ -201,8 +200,6 @@ class InviteTrackerService:
                          await EconomyService.modify_tokens(
                             user_id=inviter.id, amount=10, reason="Invite Reward", actor_id=inviter.id
                         )
-
-                    await XPService.add_xp(user_id=inviter.id, amount=50, source="Invite reward")
                 else:
                     logger.warning(f"[InviteTracker] Unknown inviter for {member.id} in {guild.id}, skipping rewards.")
             except Exception as e:
@@ -257,7 +254,6 @@ class InviteTrackerService:
                     )
 
                     # Build reward message string
-                    reward_message = ""
                     inviter_member = guild.get_member(inviter.id)
                     has_seller_role = inviter_member and seller_role in inviter_member.roles
 
@@ -267,10 +263,6 @@ class InviteTrackerService:
                     else:
                         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
                         reward_message = f"{emoji or '🪙'} 10 Shop Tokens"
-
-                    # xp_emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.XP.value), guild=guild)
-                    xp_emoji = None
-                    reward_message += f"\n{xp_emoji or '⭐'} +50 XP"
 
                     embed.add_field(name="Inviter Total", value=f"**{count}** total invites", inline=True)
                     embed.add_field(name="Invite Reward", value=reward_message, inline=True)

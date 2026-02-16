@@ -278,10 +278,9 @@ class TicketControlView(View):
 
 
 class TicketClosedView(View):
-    def __init__(self, ticket_id: str, root_view: discord.ui.View):
+    def __init__(self, ticket_id: str):
         super().__init__(timeout=None)
         self.ticket_id = ticket_id
-        self.root_view = root_view
 
         delete_btn = discord.ui.Button(
             label="Delete Ticket",
