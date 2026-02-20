@@ -83,6 +83,7 @@ class CreateGiveawayModal(Modal):
 
         for field in [
             self.prize_input,
+            self.description,
             self.duration_input,
             self.winner_count_input,
             self.min_account_age_input,
