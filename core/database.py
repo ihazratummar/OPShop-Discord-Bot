@@ -79,4 +79,17 @@ class Database:
     def reputations_tier(cls):
         return cls.get_db().reputations_tier
 
+    @classmethod
+    def giveaways(cls):
+        return cls.get_db().giveaways
+
+    @classmethod
+    def giveaway_entries(cls):
+        return cls.get_db().giveaways_entries
+
+    @classmethod
+    def giveaway_logs(cls):
+        return cls.get_db().giveaways_logs
+
+
 
