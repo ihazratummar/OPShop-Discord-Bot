@@ -13,8 +13,9 @@ class GiveawaysModel(MongoModel):
     channel_id: int = Field(..., description="Channel ID")
     message_id: Optional[int] = Field(None, description="Message ID")
 
-    title: str = Field(..., description="Title")
-    description: str = Field(..., description="Description")
+    title: Optional[str] = Field(None, description="Title")
+    description: Optional[str] = Field(None, description="Description")
+    embed_json: Optional[str] = Field(None, description="Raw Discohook JSON for embeds")
     host_id: int = Field(..., description="Host ID")
 
     winner_count: Optional[int] = Field(None, description="Winner Count")

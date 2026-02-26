@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from typing import List, Optional
+import json
 
 import discord
 from discord import Interaction
 from discord.ui import Modal, TextInput, Select, View
 
-from utils.discord_utils import MAX_PRIZE_LENGTH, MAX_WINNERS, parse_prize, ValidationError, parse_duration, \
+from utils.discord_utils import MAX_WINNERS, ValidationError, parse_duration, \
     parse_winner_count, parse_min_account_age
 
 
@@ -39,22 +40,13 @@ class CreateGiveawayModal(Modal):
         self.required_roles = required_roles
         self.blacklisted_roles = blacklisted_roles
 
-        self.prize_input = TextInput(
-            label="Giveaway Prize",
-            placeholder="e.g. Nitro Classic, $10 Steam Gift Card",
-            required=True,
-            max_length=MAX_PRIZE_LENGTH,
-            style=discord.TextStyle.short,
-            custom_id="price_input",
-        )
-        self.description = TextInput(
-            label="Giveaway Description",
-            placeholder="Enter a description",
+        self.discohook_input = TextInput(
+            label="Discohook JSON",
+            placeholder='Paste the full JSON from Discohook here',
             required=True,
             max_length=4000,
-            min_length= 10,
             style=discord.TextStyle.paragraph,
-            custom_id="description_input",
+            custom_id="discohook_input",
         )
         self.duration_input = TextInput(
             label="Duration (e.g. 1d, 2h30m, 90s)",
@@ -82,25 +74,82 @@ class CreateGiveawayModal(Modal):
         )
 
         for field in [
-            self.prize_input,
-            self.description,
+            self.discohook_input,
             self.duration_input,
             self.winner_count_input,
             self.min_account_age_input,
         ]:
             self.add_item(field)
 
+    def _parse_discohook(self, raw_json: str) -> dict:
+        """
+        Parses Discohook JSON and returns { 'content': str|None, 'embeds': list[discord.Embed] }.
+        Supports:
+          - Full message object: { "content": "...", "embeds": [...] }
+          - Single embed object: { "title": "...", ... }
+          - Array of embeds: [ { "title": "..." }, ... ]
+          - Discohook wrapper: { "messages": [ { "data": { ... } } ] }
+        """
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"Invalid JSON: `{e}`")
+
+        embeds = []
+        content = None
+
+        # Handle Discohook wrapper format: { "messages": [{ "data": { "content": ..., "embeds": [...] }}] }
+        if isinstance(data, dict) and "messages" in data:
+            messages = data["messages"]
+            if isinstance(messages, list) and len(messages) > 0:
+                msg_data = messages[0].get("data", messages[0])
+                data = msg_data
+
+        if isinstance(data, dict):
+            content = data.get("content")
+            if "embeds" in data and isinstance(data["embeds"], list):
+                for embed_data in data["embeds"]:
+                    try:
+                        embeds.append(discord.Embed.from_dict(embed_data))
+                    except Exception:
+                        pass
+            elif "title" in data or "description" in data or "color" in data:
+                embeds.append(discord.Embed.from_dict(data))
+        elif isinstance(data, list):
+            for embed_data in data:
+                if isinstance(embed_data, dict):
+                    try:
+                        embeds.append(discord.Embed.from_dict(embed_data))
+                    except Exception:
+                        pass
+
+        if not content and not embeds:
+            raise ValidationError("The JSON must contain at least `content` or an embed with `title`/`description`.")
+
+        return {"content": content, "embeds": embeds}
+
     def validate(self) -> dict:
         errors = []
         result = {}
 
+        # Parse Discohook JSON
         try:
-            result["prize"] = parse_prize(self.prize_input.value)
+            parsed = self._parse_discohook(self.discohook_input.value.strip())
+            result["content"] = parsed["content"]
+            result["embeds"] = parsed["embeds"]
+            result["embed_json"] = self.discohook_input.value.strip()
+
+            # Derive a title for DB storage (dashboard display)
+            if parsed["embeds"]:
+                result["title"] = parsed["embeds"][0].title or "Giveaway"
+            elif parsed["content"]:
+                result["title"] = parsed["content"][:100]
+            else:
+                result["title"] = "Giveaway"
         except ValidationError as e:
-            errors.append(f"**Prize:** {e}")
+            errors.append(f"**Discohook JSON:** {e}")
 
-        result["description"] = self.description.value
-
+        # Duration
         try:
             delta = parse_duration(self.duration_input.value)
             result["duration"] = delta
@@ -108,11 +157,13 @@ class CreateGiveawayModal(Modal):
         except ValidationError as e:
             errors.append(f"**Duration:** {e}")
 
+        # Winner count
         try:
             result["winner_count"] = parse_winner_count(self.winner_count_input.value)
         except ValidationError as e:
             errors.append(f"**Winner Count:** {e}")
 
+        # Min account age (optional)
         try:
             parsed_age = parse_min_account_age(self.min_account_age_input.value)
             result["min_account_age"] = int(parsed_age.total_seconds()) if parsed_age else None
@@ -122,7 +173,6 @@ class CreateGiveawayModal(Modal):
         if errors:
             raise ValidationError("\n".join(errors))
 
-        # Attach roles from the command args
         result["required_roles"] = self.required_roles
         result["blacklisted_roles"] = self.blacklisted_roles
 
@@ -139,29 +189,34 @@ class CreateGiveawayModal(Modal):
             )
             return
 
-        embed = discord.Embed(
-            title=f"🎉 {data['prize']}",
-            description=data["description"],
-            colour=discord.Colour.blue(),
-        )
-        embed.add_field(name="Ends At", value=discord.utils.format_dt(data["ends_at"], style="R"), inline=False)
-        embed.add_field(name="Winners", value=data["winner_count"], inline=True)
-        embed.add_field(name="Entries", value="0", inline=True)
-        if data["min_account_age"] is not None:
-             days = max(1, int(data["min_account_age"] / 86400))
-             embed.add_field(name="Min Account Age", value=f"{days} Days", inline=True)
-        if data.get("required_roles"):
-            role_mentions = ", ".join([f"<@&{r}>" for r in data["required_roles"]])
-            embed.add_field(name="Required Roles", value=role_mentions, inline=False)
-        if data.get("blacklisted_roles"):
-            role_mentions = ", ".join([f"<@&{r}>" for r in data["blacklisted_roles"]])
-            embed.add_field(name="Blacklisted Roles", value=role_mentions, inline=False)
-        embed.set_footer(text=f"Hosted by: {interaction.user.name}")
-
         try:
             from modules.giveaway.service import GiveawayService
 
-            msg = await interaction.channel.send(embed=embed)
+            # Build send kwargs
+            send_kwargs = {}
+            if data["content"]:
+                send_kwargs["content"] = data["content"]
+
+            embeds = data.get("embeds", [])
+
+            # Append giveaway info to the last embed (or create one if none exist)
+            if embeds:
+                info_embed = embeds[-1]
+            else:
+                info_embed = discord.Embed(colour=discord.Colour.blue())
+                embeds.append(info_embed)
+
+            info_embed.add_field(name="Ends At", value=discord.utils.format_dt(data["ends_at"], style="R"), inline=True)
+            info_embed.add_field(name="Winners", value=str(data["winner_count"]), inline=True)
+            info_embed.add_field(name="Entries", value="0", inline=True)
+            if data.get("min_account_age"):
+                days = max(1, int(data["min_account_age"] / 86400))
+                info_embed.add_field(name="Min Account Age", value=f"{days} Days", inline=True)
+            info_embed.set_footer(text=f"Hosted by: {interaction.user.name}")
+
+            send_kwargs["embeds"] = embeds
+
+            msg = await interaction.channel.send(**send_kwargs)
 
             giveaway = await GiveawayService.save_giveaways(
                 guild_id=interaction.guild.id,

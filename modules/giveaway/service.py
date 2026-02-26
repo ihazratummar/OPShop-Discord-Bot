@@ -34,13 +34,16 @@ class GiveawayService:
             giveaway_data: dict
     ) -> GiveawaysModel | None:
         try:
+            # Derive a title for dashboard display from the first embed or content
+            title = giveaway_data.get("title", "Giveaway")
+
             giveaway = GiveawaysModel(
                 guild_id = guild_id,
                 host_id = host_id,
                 channel_id = channel_id,
                 message_id = message_id,
-                title = giveaway_data["prize"],
-                description = giveaway_data["description"],
+                title = title,
+                embed_json = giveaway_data.get("embed_json"),
                 winner_count=giveaway_data["winner_count"],
                 min_account_age=giveaway_data.get("min_account_age"),
                 required_roles=giveaway_data.get("required_roles"),
@@ -170,17 +173,18 @@ class GiveawayService:
             if channel:
                 message = await channel.fetch_message(giveaway.message_id)
                 if message and message.embeds:
-                    embed = message.embeds[0]
-                    # Update or add the Entries field
+                    all_embeds = list(message.embeds)
+                    # Update or add the Entries field on the LAST embed
+                    target_embed = all_embeds[-1]
                     updated = False
-                    for i, field in enumerate(embed.fields):
+                    for i, field in enumerate(target_embed.fields):
                         if field.name == "Entries":
-                            embed.set_field_at(i, name="Entries", value=str(new_count), inline=True)
+                            target_embed.set_field_at(i, name="Entries", value=str(new_count), inline=True)
                             updated = True
                             break
                     if not updated:
-                        embed.add_field(name="Entries", value=str(new_count), inline=True)
-                    await message.edit(embed=embed)
+                        target_embed.add_field(name="Entries", value=str(new_count), inline=True)
+                    await message.edit(embeds=all_embeds)
         except Exception as e:
             logger.warning(f"Failed to update giveaway embed entry count: {e}")
         
@@ -244,31 +248,38 @@ class GiveawayService:
                     try:
                         message = await channel.fetch_message(giveaway.message_id)
                         
-                        embed = message.embeds[0]
-                        embed.color = discord.Color.red()
-                        embed.set_footer(text="Giveaway Ended")
-                        
+                        # Edit all existing embeds to show ended state
+                        edited_embeds = []
+                        for embed in message.embeds:
+                            embed.color = discord.Color.red()
+                            edited_embeds.append(embed)
+
+                        # Add a result embed at the end
+                        result_embed = discord.Embed(color=discord.Color.red())
+                        result_embed.set_footer(text="🔴 Giveaway Ended")
                         if winners:
                             winner_mentions = ", ".join([f"<@{w}>" for w in winners])
-                            embed.add_field(name="Winners", value=winner_mentions, inline=False)
+                            result_embed.add_field(name="🏆 Winners", value=winner_mentions, inline=False)
                         else:
-                            embed.add_field(name="Winners", value="No valid entries.", inline=False)
-                            
-                        # Disable View
+                            result_embed.add_field(name="🏆 Winners", value="No valid entries.", inline=False)
+                        edited_embeds.append(result_embed)
+
+                        # Disable Join button
                         from modules.giveaway.ui import GiveawayJoinView
                         view = GiveawayJoinView(giveaway_id=str(giveaway.id))
                         for child in view.children:
                             child.disabled = True
                         
-                        await message.edit(embed=embed, view=view)
+                        await message.edit(embeds=edited_embeds, view=view)
                     except discord.NotFound:
                         logger.warning(f"Giveaway message {giveaway.message_id} not found.")
 
                     # Announce Winners
+                    title = giveaway.title or "Giveaway"
                     if winners:
                         winner_mentions = ", ".join([f"<@{w}>" for w in winners])
-                        await channel.send(f"🎉 Congratulations {winner_mentions}! You won **{giveaway.title}**!")
+                        await channel.send(f"🎉 Congratulations {winner_mentions}! You won **{title}**!")
                     else:
-                        await channel.send(f"😢 Giveaway for **{giveaway.title}** ended. No one entered!")
+                        await channel.send(f"😢 Giveaway for **{title}** ended. No one entered!")
         except Exception as e:
             logger.error(f"Error executing discord actions for ended giveaway {giveaway_id}: {e}")
