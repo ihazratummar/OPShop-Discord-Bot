@@ -4,6 +4,7 @@ from discord.ui import View, Modal, TextInput, Select, Button
 from modules.guild.service import GuildSettingService
 from modules.shop.services import CategoryService, ItemService, logger
 from modules.shop.models import Category, Item
+from modules.shop.ui import _add_safe_fields, CATEGORY_PAGE_SIZE
 import json
 
 PAGE_SIZE = 20
@@ -40,13 +41,13 @@ async def get_root_embed(categories: list, page: int = 0) -> discord.Embed:
             sub_count = cat_stat['subcats']
             desc_list += f"• **{cat.name}** - {sub_count} Subcats, {item_count} Items\n"
         
-        embed.add_field(name="Root Categories", value=desc_list, inline=False)
+        _add_safe_fields(embed, "Root Categories", desc_list, inline=False)
     return embed
 
 async def get_category_embed(category: Category, subcategories: list, items: list, page: int = 0) -> discord.Embed:
     # We paginate items, but show subcategories at the top (usually few)
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
+    start = page * CATEGORY_PAGE_SIZE
+    end = start + CATEGORY_PAGE_SIZE
     visible_items = items[start:end]
     total_items = len(items)
 
@@ -70,21 +71,23 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
              sub_stat = stats.get(str(sub.id), {'items': 0})
              sub_item_count = sub_stat['items']
              sub_list += f"• 📁 **{sub.name}** ({sub_item_count} items)\n"
-         embed.add_field(name=f"Subcategories ({len(subcategories)})", value=sub_list, inline=False)
+         _add_safe_fields(embed, f"Subcategories ({len(subcategories)})", sub_list, inline=False)
     
-    # Item list
-    item_list = ""
+    # Items — each item gets its own field
     if not items:
-        item_list = "*No items in this category.*"
+        embed.add_field(name="Items (0)", value="*No items in this category.*", inline=False)
     else:
         for item in visible_items:
             status = "🟢" if item.is_active else "🔴"
-            item_list += f"{status} **{item.name}** - {item.price} {item.currency}\n"
+            embed.add_field(
+                name=f"{status} {item.name}",
+                value=f"**Price:** {item.price:,.0f} {item.currency}",
+                inline=True
+            )
         
-        page_count = (total_items // PAGE_SIZE) + 1
-        embed.set_footer(text=f"Page {page+1}/{page_count} | Total Items: {total_items}")
-            
-    embed.add_field(name=f"Items ({total_items})", value=item_list, inline=False)
+        page_count = -(-total_items // CATEGORY_PAGE_SIZE)  # Ceiling division
+        embed.set_footer(text=f"Page {page+1}/{page_count} • {total_items} items total")
+
     return embed
 
 async def get_item_embed(item: Item, category_name: str) -> discord.Embed:
@@ -545,8 +548,11 @@ class CategorySelect(Select):
          cat_id = self.values[0]
          category = await CategoryService.get_category(cat_id)
          if category:
-             view = AdminCategoryView(category)
-             await view.refresh(interaction, initial=True)
+             try:
+                 view = AdminCategoryView(category)
+                 await view.refresh(interaction, initial=True)
+             except Exception as e:
+                 logger.exception(f"Failed to create category panel: {e}")
          else:
              await interaction.response.send_message("Category not found.", ephemeral=True)
 
@@ -570,12 +576,11 @@ class AdminCategoryView(View):
         
         # Pagination for Items
         total = len(items)
-        self.total_pages = (total // PAGE_SIZE) + (1 if total % PAGE_SIZE > 0 else 0)
-        self.total_pages = max(1, self.total_pages)
+        self.total_pages = -(-total // CATEGORY_PAGE_SIZE) if total > 0 else 1  # Ceiling division
         if self.page >= self.total_pages: self.page = self.total_pages - 1
         
-        start = self.page * PAGE_SIZE
-        end = start + PAGE_SIZE
+        start = self.page * CATEGORY_PAGE_SIZE
+        end = start + CATEGORY_PAGE_SIZE
         visible_items = items[start:end]
 
         if visible_items:
@@ -640,8 +645,11 @@ class AdminCategoryView(View):
             # Go up one level
             if self.category.parent_id:
                 parent = await CategoryService.get_category(self.category.parent_id)
-                view = AdminCategoryView(parent)
-                await view.refresh(interaction, initial=True)
+                try:
+                    view = AdminCategoryView(parent)
+                    await view.refresh(interaction, initial=True)
+                except ValueError as e:
+                    logger.error(f"Error while refreshing category view: {str(e)}")
             else:
                 root = AdminRootView()
                 await root.init_view()
@@ -660,8 +668,11 @@ class AdminCategoryView(View):
             # Go to parent
             parent = await CategoryService.get_category(self.category.parent_id)
             if parent:
-                view = AdminCategoryView(parent)
-                await view.refresh(interaction, initial=True)
+                try:
+                    view = AdminCategoryView(parent)
+                    await view.refresh(interaction, initial=True)
+                except ValueError as e:
+                    logger.error(f"Error while refreshing category view: {str(e)}")
                 return
 
         # Go to Root
@@ -707,8 +718,11 @@ class AdminItemView(View):
         # Go back to Category
         cat = await CategoryService.get_category(str(self.item.category_id))
         if cat:
-            view = AdminCategoryView(cat)
-            await view.refresh(interaction, initial=True)
+            try:
+                view = AdminCategoryView(cat)
+                await view.refresh(interaction, initial=True)
+            except ValueError as e:
+                logger.error(f"Error while refreshing category view: {str(e)}")
         else:
              await interaction.response.send_message("Item deleted, but category not found.", ephemeral=True)
 

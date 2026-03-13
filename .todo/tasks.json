@@ -1,0 +1,24 @@
+[
+  {
+    "id": "TASK_1",
+    "priority": "HIGH",
+    "tags": [],
+    "title": "SHOP-ADMIN",
+    "description": "Add description for shop categories",
+    "status": "TODO",
+    "date": {
+      "date": {
+        "year": 2026,
+        "month": 2,
+        "day": 26
+      },
+      "time": {
+        "hour": 12,
+        "minute": 11,
+        "second": 2,
+        "nano": 479543000
+      }
+    },
+    "isImported": false
+  }
+]

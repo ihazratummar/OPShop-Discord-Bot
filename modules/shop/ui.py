@@ -2,6 +2,8 @@ import discord
 from discord.ui import View, Select, Button
 from typing import List
 
+from loguru import logger
+
 from core.constant import Emoji
 from core.database import Database
 from modules.guild.service import GuildSettingService
@@ -12,9 +14,44 @@ from modules.tickets.services import TicketService
 from modules.tickets.ui import TicketControlView
 
 PAGE_SIZE = 20
+CATEGORY_PAGE_SIZE = 10
+FIELD_MAX_LEN = 1024
 
 
 # --- Helper Methods ---
+def _add_safe_fields(embed: discord.Embed, name: str, content: str, inline: bool = False):
+    """Add content as embed field(s), splitting across multiple fields if it exceeds 1024 chars."""
+    if not content:
+        content = "\u200b"  # Zero-width space as fallback
+
+    if len(content) <= FIELD_MAX_LEN:
+        embed.add_field(name=name, value=content, inline=inline)
+        return
+
+    # Split by lines and distribute across fields
+    lines = content.split("\n")
+    chunks = []
+    current_chunk = ""
+    for line in lines:
+        candidate = f"{current_chunk}\n{line}" if current_chunk else line
+        if len(candidate) > FIELD_MAX_LEN:
+            if current_chunk:
+                chunks.append(current_chunk)
+            # If a single line itself exceeds the limit, truncate it
+            if len(line) > FIELD_MAX_LEN:
+                current_chunk = line[:FIELD_MAX_LEN - 3] + "..."
+            else:
+                current_chunk = line
+        else:
+            current_chunk = candidate
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    for i, chunk in enumerate(chunks):
+        field_name = name if i == 0 else f"{name} (cont.)"
+        embed.add_field(name=field_name, value=chunk, inline=inline)
+
+
 async def get_root_embed(
         categories: list,
         page: int = 0
@@ -57,7 +94,7 @@ async def get_root_embed(
             else:
                 desc += f">>> Coming Soon"
 
-            embed.add_field(name=cat.name, value=desc, inline=False)
+            _add_safe_fields(embed, cat.name, desc, inline=False)
 
 
     embed.set_footer(text="Select a category to view items.")
@@ -65,8 +102,8 @@ async def get_root_embed(
 
 
 async def get_category_embed(category: Category, subcategories: list, items: list, page: int = 0) -> discord.Embed:
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
+    start = page * CATEGORY_PAGE_SIZE
+    end = start + CATEGORY_PAGE_SIZE
     visible_items = items[start:end]
     total_items = len(items)
 
@@ -89,20 +126,22 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
             sub_stat = stats.get(str(sub.id), {'items': 0})
             sub_item_count = sub_stat['items']
             sub_list += f"• 📁 **{sub.name}** ({sub_item_count} items)\n"
-        embed.add_field(name=f"Subcategories ({len(subcategories)})", value=sub_list, inline=False)
+        _add_safe_fields(embed, f"Subcategories ({len(subcategories)})", sub_list, inline=False)
 
-    # Items
-    item_list = ""
+    # Items — each item gets its own field
     if not items:
-        item_list = "*No items available.*"
+        embed.add_field(name="Items (0)", value="*No items available.*", inline=False)
     else:
         for item in visible_items:
-            item_list += f"• **{item.name}** - {item.price} {item.currency.title()}\n\n"
+            embed.add_field(
+                name=f"📦 {item.name}",
+                value=f"**Price:** {item.price:,.0f} {item.currency.title()}",
+                inline=True
+            )
 
-        page_count = (total_items // PAGE_SIZE) + 1
-        embed.set_footer(text=f"Page {page + 1}/{page_count} | Select an item to buy.")
+        page_count = -(-total_items // CATEGORY_PAGE_SIZE)  # Ceiling division
+        embed.set_footer(text=f"Page {page + 1}/{page_count} • {total_items} items total • Select an item to buy.")
 
-    embed.add_field(name=f"Items ({total_items})", value=item_list, inline=False)
     return embed
 
 
@@ -193,8 +232,11 @@ class ShopCategorySelect(Select):
         cat_id = self.values[0]
         category = await CategoryService.get_category(cat_id)
         if category:
-            view = ShopCategoryView(category, self.user_id)
-            await view.refresh(interaction, initial=True)
+            try:
+                view = ShopCategoryView(category, self.user_id)
+                await view.refresh(interaction, initial=True)
+            except Exception as e:
+                logger.error(f"Failed to refresh shop category view: {e}")
         else:
             await interaction.response.send_message("Category not found.", ephemeral=True)
 
@@ -220,12 +262,11 @@ class ShopCategoryView(View):
 
         # Pagination Items
         total = len(items)
-        self.total_pages = (total // PAGE_SIZE) + (1 if total % PAGE_SIZE > 0 else 0)
-        self.total_pages = max(1, self.total_pages)
+        self.total_pages = -(-total // CATEGORY_PAGE_SIZE) if total > 0 else 1  # Ceiling division
         if self.page >= self.total_pages: self.page = self.total_pages - 1
 
-        start = self.page * PAGE_SIZE
-        end = start + PAGE_SIZE
+        start = self.page * CATEGORY_PAGE_SIZE
+        end = start + CATEGORY_PAGE_SIZE
         visible_items = items[start:end]
 
         if visible_items:
@@ -266,8 +307,11 @@ class ShopCategoryView(View):
             # Go to parent
             parent = await CategoryService.get_category(self.category.parent_id)
             if parent:
-                view = ShopCategoryView(parent, self.user_id)
-                await view.refresh(interaction, initial=True)
+                try:
+                    view = ShopCategoryView(parent, self.user_id)
+                    await view.refresh(interaction, initial=True)
+                except Exception as e:
+                    logger.error(f"Failed to refresh shop category view: {e}")
                 return
 
         # Go to Root
@@ -346,8 +390,11 @@ class ShopItemView(View):
     async def back_btn(self, interaction: discord.Interaction, button: Button):
         cat = await CategoryService.get_category(str(self.item.category_id))
         if cat:
-            view = ShopCategoryView(cat, self.user_id)
-            await view.refresh(interaction, initial=True)
+            try:
+                view = ShopCategoryView(cat, self.user_id)
+                await view.refresh(interaction, initial=True)
+            except Exception as e:
+                logger.error(f"Failed to refresh shop category view: {e}")
 
 
 # ========================================

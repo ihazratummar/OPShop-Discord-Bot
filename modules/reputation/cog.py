@@ -101,7 +101,5 @@ class Reputation(commands.Cog):
             await interaction.followup.send(f"{channel.mention} reputation logs channel updated.", ephemeral=True)
 
 
- ## TODO : Add panel for levels
-
 async def setup(bot):
     await bot.add_cog(Reputation(bot))
