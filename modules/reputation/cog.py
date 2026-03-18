@@ -43,8 +43,7 @@ class Reputation(commands.Cog):
             from_user_id=interaction.user.id,
             target_user_id=member.id,
             guild=interaction.guild,
-            reputation_amount=reputation,
-            is_admin=True
+            reputation_amount=reputation
         )
         await interaction.followup.send(
             f"⭐️ +{reputation} rep added to {member.name}'s profile!", ephemeral=True

@@ -1,15 +1,15 @@
-import time
-import discord
 import asyncio
 import re
+import time
+
+import discord
+from loguru import logger
 
 from core.constant import Emoji
 from core.database import Database
-from loguru import logger
 from modules.economy.services import EconomyService
 from modules.guild.service import GuildSettingService
 from modules.reputation.models import ReputationLogs, ReputationTier
-from modules.profile.services import ProfileService
 
 
 class ReputationService:
@@ -25,8 +25,16 @@ class ReputationService:
 
         content = message.content.lower()
 
-        if not re.search(r"\+\s*rep\b", content, re.IGNORECASE):
+        rep_match = re.search(r"([+-])\s*rep\b", content, re.IGNORECASE)
+        if not rep_match:
             return
+
+        rep_type = rep_match.group(1)
+        is_positive = rep_type == "+"
+
+        review_text = re.sub(r"[+-]\s*rep\b", "", message.content, flags=re.IGNORECASE).strip()
+        if review_text == "":
+            review_text = None
 
         guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
 
@@ -34,98 +42,104 @@ class ReputationService:
             return
 
         mentions = message.mentions
-        if len(mentions) != 1:
-            await message.reply("You must mention exactly one user!")
+        if not mentions:
+            await message.reply(f"You must mention someone to reputate!")
             return
 
-        target = mentions[0]
-        if target.id == message.author.id:
-            await message.reply("You can not rep yourself!")
-            return
 
-        guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
-        logger.debug(f"Guild settings: {guild_settings}")
         seller_role = guild.get_role(guild_settings.seller_role_id)
-        logger.debug(f"Seller role: {seller_role}")
         if not seller_role:
             await message.reply(f"Seller role not configured!")
             return
 
-        if not seller_role or seller_role not in target.roles:
-            await message.reply(f"Only user with the {seller_role.name} role can receive reputation!")
-            return
-
-        review_text = message.content.replace("+rep", "")
-        review_text = review_text.replace(target.mention, "").strip()
-        # normalize empty → None
-        if review_text == "":
-            review_text = None
+        targets = []
+        for target in mentions:
+            if target.id == message.author.id:
+                await message.reply("You can not rep yourself!")
+                return
+            if not seller_role or seller_role not in target.roles:
+                await message.reply(f"Only user with the {seller_role.name} role can receive reputation!")
+                return
+            targets.append(target)
 
         # --- ALWAYS send confirmation messages, even if bonus logic fails ---
-        try:
-            rep_given_result = await Database.users().find_one_and_update(
-                {"discord_id": message.author.id},
-                {"$inc": {"rep_given_counter": 1}},
-                upsert=True,
-                return_document=True
-            )
-            counter = rep_given_result.get("rep_given_counter", 1)
-
-            # Give buyer 10 tokens
-            await EconomyService.modify_tokens(
-                user_id=message.author.id,
-                amount=10,
-                reason="Reputation added",
-                actor_id=message.author.id,
-            )
-
-            # Every 3rd rep, buyer gets bonus +1 rep
-            if counter >= 3:
-                await Database.users().update_one(
+        if is_positive:
+            try:
+                rep_given_result = await Database.users().find_one_and_update(
                     {"discord_id": message.author.id},
-                    {"$set": {"rep_given_counter": 0}}
+                    {"$inc": {"rep_given_counter": 1}},
+                    upsert=True,
+                    return_document=True
                 )
+                counter = rep_given_result.get("rep_given_counter", 1)
 
-                asyncio.create_task(
-                    ReputationService.add_rep(
-                        user_id=message.author.id,
-                        guild=guild,
-                        reputation_amount=1
-                    )
-                )
-
+                # Give buyer 10 tokens
                 await EconomyService.modify_tokens(
                     user_id=message.author.id,
                     amount=10,
-                    reason="Reputation bonus for 3rd rep",
+                    reason="Reputation added",
                     actor_id=message.author.id,
                 )
 
-                await message.reply(f"<a:arrow:1468247068240777238> {message.author.mention} has earned +1 <a:bluestar:1468261614200422471> reputation for doing several smooth trades and crediting the seller(s)")
+                # Every 3rd rep, buyer gets bonus +1 rep
+                if counter >= 3:
+                    await Database.users().update_one(
+                        {"discord_id": message.author.id},
+                        {"$set": {"rep_given_counter": 0}}
+                    )
 
-        except Exception as e:
-            logger.error(f"Error in bonus logic: {e}")
+                    asyncio.create_task(
+                        ReputationService.add_rep(
+                            user_id=message.author.id,
+                            guild=guild,
+                            reputation_amount=1
+                        )
+                    )
+
+                    await EconomyService.modify_tokens(
+                        user_id=message.author.id,
+                        amount=10,
+                        reason="Reputation bonus for 3rd rep",
+                        actor_id=message.author.id,
+                    )
+
+                    await message.reply(
+                        f"<a:arrow:1468247068240777238> {message.author.mention} has earned +1 <a:bluestar:1468261614200422471> reputation for doing several smooth trades and crediting the seller(s)")
+
+            except Exception as e:
+                logger.error(f"Error in bonus logic: {e}")
 
         # --- Add reputation to seller (always) ---
-        asyncio.create_task(
-            ReputationService.add_reputation(
-                from_user_id=message.author.id,
-                target_user_id=target.id,
-                guild=message.guild,
-                message=review_text
+        for target in targets:
+            asyncio.create_task(
+                ReputationService.add_reputation(
+                    from_user_id=message.author.id,
+                    target_user_id=target.id,
+                    guild=message.guild,
+                    message=review_text,
+                    reputation_amount= 1 if is_positive else -1
+                )
             )
-        )
 
         # --- Send confirmation messages (ALWAYS) ---
         try:
             emoji = GuildSettingService.get_server_emoji(guild=guild, emoji_id=Emoji.SHOP_TOKEN.value)
-            await message.channel.send(f"{message.author.mention} has earned {emoji if emoji else '🪙'} 10 Shop Tokens\n{target.mention} has earned +1 Reputation <a:bluestar:1468261614200422471>.")
+            mention = ", ".join(target.mention for target in targets)
+            if is_positive:
+                final_message = f"{message.author.mention} has earned {emoji if emoji else '🪙'} 10 Shop Tokens\n{mention} has earned +1 Reputation <a:bluestar:1468261614200422471>."
+            else:
+                final_message = (
+                    f"{mention} received -1 Reputation ⚠️\n"
+                    f"Reputation can be recovered with future positive trades."
+                )
+
+            await message.channel.send(final_message)
         except Exception as e:
             logger.error(f"Failed to send rep confirmation: {e}")
 
     @staticmethod
     async def add_reputation(from_user_id: int, target_user_id: int, guild: discord.Guild, message: str = None,
-                             reputation_amount: int = 1, is_admin: bool = False):
+                             reputation_amount: int = 1):
         rep = ReputationLogs(
             from_user_id=from_user_id,
             to_user_id=target_user_id,
@@ -142,7 +156,7 @@ class ReputationService:
         )
         
         # 🤖 AUTOMATION START: Check if user unlocked a new shiny role!
-        # We assume the bot has the guild object cached or we fetch it.
+        # We assume the bot has the guild object cached we fetch it.
         # Since this is usually called from an interaction/message, we might not have guild handy passed in explicitly as object,
         # but we have guild_id. We need to fetch the guild to edit roles.
         if guild:
