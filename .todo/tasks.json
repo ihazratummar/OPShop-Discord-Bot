@@ -1,22 +1,66 @@
 [
   {
-    "id": "TASK_1",
-    "priority": "HIGH",
+    "id": "TASK_3",
+    "priority": "LOW",
     "tags": [],
-    "title": "SHOP-ADMIN",
-    "description": "Add description for shop categories",
+    "title": "Boss Fight Seller",
+    "description": "This role will work as seller role",
     "status": "TODO",
     "date": {
       "date": {
         "year": 2026,
-        "month": 2,
-        "day": 26
+        "month": 3,
+        "day": 19
       },
       "time": {
-        "hour": 12,
-        "minute": 11,
-        "second": 2,
-        "nano": 479543000
+        "hour": 21,
+        "minute": 13,
+        "second": 3,
+        "nano": 78687000
+      }
+    },
+    "isImported": false
+  },
+  {
+    "id": "TASK_5",
+    "priority": "LOW",
+    "tags": [],
+    "title": "Giveaway",
+    "description": "Create a normal giveway command without json embed",
+    "status": "IN_PROGRESS",
+    "date": {
+      "date": {
+        "year": 2026,
+        "month": 3,
+        "day": 19
+      },
+      "time": {
+        "hour": 21,
+        "minute": 13,
+        "second": 33,
+        "nano": 250578000
+      }
+    },
+    "isImported": false
+  },
+  {
+    "id": "TASK_8",
+    "priority": "MEDIUM",
+    "tags": [],
+    "title": "Sticky Message",
+    "description": "Create sticky message",
+    "status": "TODO",
+    "date": {
+      "date": {
+        "year": 2026,
+        "month": 3,
+        "day": 22
+      },
+      "time": {
+        "hour": 8,
+        "minute": 24,
+        "second": 15,
+        "nano": 942774000
       }
     },
     "isImported": false

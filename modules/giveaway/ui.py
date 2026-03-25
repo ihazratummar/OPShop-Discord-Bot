@@ -29,6 +29,184 @@ class GiveawayJoinView(discord.ui.View):
         await GiveawayService.handle_join(interaction, self.giveaway_id)
 
 
+class DefaultGiveawayModal(Modal):
+    def __init__(
+        self,
+        title: str = "Create Giveaway",
+        required_roles: Optional[List[int]] = None,
+        blacklisted_roles: Optional[List[int]] = None,
+    ):
+        super().__init__(title=title, timeout=600, custom_id="default_create_giveaway")
+        self.required_roles = required_roles
+        self.blacklisted_roles = blacklisted_roles
+
+        self.prize_input = TextInput(
+            label="Prize",
+            placeholder="What are you giving away?",
+            required=True,
+            max_length=200,
+            style=discord.TextStyle.short,
+            custom_id="prize_input",
+        )
+        self.description_input = TextInput(
+            label="Description",
+            placeholder="Optional details about the giveaway...",
+            required=False,
+            max_length=4000,
+            style=discord.TextStyle.paragraph,
+            custom_id="description_input",
+        )
+        self.duration_input = TextInput(
+            label="Duration (e.g. 1d, 2h30m, 90s)",
+            placeholder="1d / 2h30m / 90s",
+            required=True,
+            max_length=20,
+            style=discord.TextStyle.short,
+            custom_id="duration_input",
+        )
+        self.winner_count_input = TextInput(
+            label="Winner Count",
+            placeholder=f"1 – {MAX_WINNERS}",
+            required=True,
+            max_length=3,
+            style=discord.TextStyle.short,
+            custom_id="winner_count_input",
+        )
+        self.min_account_age_input = TextInput(
+            label="Min Account Age (optional, e.g. 30d)",
+            placeholder="Leave blank to skip",
+            required=False,
+            max_length=20,
+            style=discord.TextStyle.short,
+            custom_id="min_account_age_input",
+        )
+
+        for field in [
+            self.prize_input,
+            self.description_input,
+            self.duration_input,
+            self.winner_count_input,
+            self.min_account_age_input,
+        ]:
+            self.add_item(field)
+
+    def validate(self) -> dict:
+        errors = []
+        result = {}
+
+        prize = self.prize_input.value.strip()
+        description = self.description_input.value.strip() if self.description_input.value else "No description provided."
+
+        result["content"] = "🎉 **GIVEAWAY** 🎉"
+        
+        embed = discord.Embed(
+            title=prize,
+            description=description,
+            colour=discord.Colour.blue()
+        )
+        
+        result["embeds"] = [embed]
+        result["title"] = prize
+        result["embed_json"] = None
+
+        # Duration
+        try:
+            delta = parse_duration(self.duration_input.value)
+            result["duration"] = delta
+            result["ends_at"] = datetime.now(timezone.utc) + delta
+        except ValidationError as e:
+            errors.append(f"**Duration:** {e}")
+
+        # Winner count
+        try:
+            result["winner_count"] = parse_winner_count(self.winner_count_input.value)
+        except ValidationError as e:
+            errors.append(f"**Winner Count:** {e}")
+
+        # Min account age (optional)
+        try:
+            parsed_age = parse_min_account_age(self.min_account_age_input.value)
+            result["min_account_age"] = int(parsed_age.total_seconds()) if parsed_age else None
+        except ValidationError as e:
+            errors.append(f"**Minimum Account Age:** {e}")
+
+        if errors:
+            raise ValidationError("\n".join(errors))
+
+        result["required_roles"] = self.required_roles
+        result["blacklisted_roles"] = self.blacklisted_roles
+
+        return result
+
+    async def on_submit(self, interaction: Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            data = self.validate()
+        except ValidationError as e:
+            await interaction.followup.send(
+                f"🚨 Please fix the following: \n{e}",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            from modules.giveaway.service import GiveawayService
+
+            send_kwargs = {}
+            if data["content"]:
+                send_kwargs["content"] = data["content"]
+
+            embeds = data.get("embeds", [])
+            info_embed = embeds[-1] if embeds else discord.Embed(colour=discord.Colour.blue())
+
+            info_embed.add_field(name="Ends At", value=discord.utils.format_dt(data["ends_at"], style="R"), inline=True)
+            info_embed.add_field(name="Winners", value=str(data["winner_count"]), inline=True)
+            info_embed.add_field(name="Entries", value="0", inline=True)
+            if data.get("min_account_age"):
+                days = max(1, int(data["min_account_age"] / 86400))
+                info_embed.add_field(name="Min Account Age", value=f"{days} Days", inline=True)
+            info_embed.set_footer(text=f"Hosted by: {interaction.user.name}")
+
+            if not embeds:
+                embeds.append(info_embed)
+
+            send_kwargs["embeds"] = embeds
+
+            msg = await interaction.channel.send(**send_kwargs)
+
+            giveaway = await GiveawayService.save_giveaways(
+                guild_id=interaction.guild.id,
+                host_id=interaction.user.id,
+                channel_id=interaction.channel.id,
+                message_id=msg.id,
+                giveaway_data=data,
+            )
+            
+            if giveaway:
+                view = GiveawayJoinView(giveaway_id=str(giveaway.id))
+                await msg.edit(view=view)
+                
+                GiveawayService.schedule_giveaway_end(interaction.client, giveaway)
+                
+                await interaction.followup.send(f"✅ Giveaway started in {interaction.channel.mention}!", ephemeral=True)
+            else:
+                await msg.delete()
+                await interaction.followup.send("❌ Failed to start giveaway. Database error.", ephemeral=True)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error starting giveaway: {e}", ephemeral=True)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception):
+        try:
+            await interaction.followup.send(
+                "❌ An unexpected error occurred. Please try again.",
+                ephemeral=True
+            )
+        except Exception:
+            pass
+        raise error
+
+
 class CreateGiveawayModal(Modal):
     def __init__(
         self,

@@ -66,12 +66,36 @@ class Giveaway(commands.Cog):
             )
         )
 
+    @app_commands.command(name="create_giveaway", description="Create a new Giveaway")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(
+        required_role="Role required to enter the giveaway",
+        blacklisted_role="Role blacklisted from entering the giveaway",
+    )
+    async def create_giveaway_command(self, interaction: discord.Interaction, required_role: str = None, blacklisted_role: str = None):
+        from modules.giveaway.ui import DefaultGiveawayModal
+        
+        required_roles = [int(required_role)] if required_role else None
+        blacklisted_roles = [int(blacklisted_role)] if blacklisted_role else None
+        
+        await interaction.response.send_modal(
+            DefaultGiveawayModal(
+                required_roles=required_roles,
+                blacklisted_roles=blacklisted_roles,
+            )
+        )
+
+
+
+    @create_giveaway_command.autocomplete("required_role")
     @gcreate_command.autocomplete("required_role")
     async def gcreate_required_role_autocomplete(
         self, interaction: discord.Interaction, current: str
     ) -> List[app_commands.Choice[str]]:
         return self._role_autocomplete(interaction, current)
 
+    @create_giveaway_command.autocomplete("blacklisted_role")
     @gcreate_command.autocomplete("blacklisted_role")
     async def gcreate_blacklisted_role_autocomplete(
         self, interaction: discord.Interaction, current: str
