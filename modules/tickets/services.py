@@ -866,15 +866,15 @@ class TicketService:
     @staticmethod
     async def claim_ticket_func(interaction: discord.Interaction, ticket_id, root_view):
         await interaction.response.defer(ephemeral=True)
-        seller_role = await GuildSettingService.get_seller_role(interaction.guild)
+        seller_roles = await GuildSettingService.get_seller_roles(interaction.guild)
         # 1. Check the claimer is a seller or admin or not
-        if not seller_role:
+        if not seller_roles:
             await interaction.followup.send("Seller role not configured", ephemeral=True)
             return
 
         allowed = (
                 interaction.user.guild_permissions.administrator or
-                seller_role in interaction.user.roles
+                any(role in interaction.user.roles for role in seller_roles)
         )
         if not allowed:
             await interaction.followup.send("To claim a ticket you must be an admin or a seller!", ephemeral=True)
@@ -968,7 +968,7 @@ class TicketService:
     async def unclaim_ticket_btn(interaction: discord.Interaction, root_view):
         await interaction.response.defer(ephemeral=True)
 
-        seller_role = await GuildSettingService.get_seller_role(guild=interaction.guild)
+        seller_roles = await GuildSettingService.get_seller_roles(guild=interaction.guild)
 
         ticket = await TicketService.get_ticket_by_channel(channel_id=interaction.channel_id)
         if not ticket:

@@ -172,16 +172,15 @@ class InviteTrackerService:
             upsert=True,
         )
 
-        # Check if this is a rejoin
         is_rejoin = result.upserted_id is None
-        seller_role = None
+        seller_roles = []
         if is_rejoin:
             logger.info(f"[InviteTracker] Rejoin detected for {member.id} in {guild.id}, skipping rewards.")
         else:
             # --- Rewards (only for new joins AND if inviter known) ---
             try:
                 if inviter:
-                    seller_role = await GuildSettingService.get_seller_role(guild=guild)
+                    seller_roles = await GuildSettingService.get_seller_roles(guild=guild)
 
                     # Try to get inviter as member to check roles
                     inviter_member = guild.get_member(inviter.id)
@@ -192,7 +191,7 @@ class InviteTrackerService:
                         except discord.NotFound:
                             inviter_member = None
 
-                    has_seller_role = inviter_member and seller_role in inviter_member.roles
+                    has_seller_role = inviter_member and any(role in inviter_member.roles for role in seller_roles)
 
                     if has_seller_role:
                         await ReputationService.add_rep(user_id=inviter.id, guild=guild)
@@ -255,7 +254,7 @@ class InviteTrackerService:
 
                     # Build reward message string
                     inviter_member = guild.get_member(inviter.id)
-                    has_seller_role = inviter_member and seller_role in inviter_member.roles
+                    has_seller_role = inviter_member and any(role in inviter_member.roles for role in seller_roles)
 
                     if has_seller_role:
                         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
