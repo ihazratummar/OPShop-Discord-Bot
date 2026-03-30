@@ -47,8 +47,8 @@ class ReputationService:
             return
 
 
-        seller_role = guild.get_role(guild_settings.seller_role_id)
-        if not seller_role:
+        seller_roles = [guild.get_role(rid) for rid in guild_settings.seller_role_ids if guild.get_role(rid)]
+        if not seller_roles:
             await message.reply(f"Seller role not configured!")
             return
 
@@ -57,8 +57,8 @@ class ReputationService:
             if target.id == message.author.id:
                 await message.reply("You can not rep yourself!")
                 return
-            if not seller_role or seller_role not in target.roles:
-                await message.reply(f"Only user with the {seller_role.name} role can receive reputation!")
+            if not any(role in target.roles for role in seller_roles):
+                await message.reply(f"Only user with the seller roles can receive reputation!")
                 return
             targets.append(target)
 

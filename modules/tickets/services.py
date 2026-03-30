@@ -59,9 +59,9 @@ class TicketService:
                 guild_settings = None
 
             # 2. Seller Role
-            seller_role = None
-            if guild_settings and guild_settings.seller_role_id:
-                seller_role = guild.get_role(guild_settings.seller_role_id)
+            seller_roles = []
+            if guild_settings and guild_settings.seller_role_ids:
+                seller_roles = [guild.get_role(rid) for rid in guild_settings.seller_role_ids if guild.get_role(rid)]
 
             # 3. Build overwrites
             overwrites = {
@@ -69,9 +69,10 @@ class TicketService:
                 user: discord.PermissionOverwrite(read_messages=True, send_messages=True, read_message_history=True),
                 guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True),
             }
-            if seller_role:
-                overwrites[seller_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True,
-                                                                      read_message_history=True, manage_messages=True)
+            if seller_roles:
+                for role in seller_roles:
+                    overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True,
+                                                                          read_message_history=True, manage_messages=True)
 
             if ticket_manager_role:
                 overwrites[ticket_manager_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True,
@@ -712,14 +713,14 @@ class TicketService:
 
         ## Check Access
         manager_role = await TicketService.get_ticket_manager_role(guild=interaction.guild)
-        seller_role = await GuildSettingService.get_seller_role(guild=interaction.guild)
+        seller_roles = await GuildSettingService.get_seller_roles(guild=interaction.guild)
         member = interaction.user
         member_role_ids = {role.id for role in member.roles}
         allowed = (
                 member.id == settings.owner_id
                 or member.guild_permissions.administrator
                 or (manager_role and manager_role.id in member_role_ids)
-                or (seller_role and seller_role.id in member_role_ids)
+                or any(role.id in member_role_ids for role in seller_roles)
         )
 
         if not allowed:

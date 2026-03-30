@@ -417,10 +417,11 @@ class CustomTicketButton(Button):
             view = TicketControlView(str(ticket.id), is_custom_ticket=True)
             ticket_manager = await TicketService.get_ticket_manager_role(guild=interaction.guild)
             guild_settings = await GuildSettingService.get_guild_settings(guild=interaction.guild)
-            seller_role_id = guild_settings.seller_role_id
-            seller_role = None
-            if seller_role_id:
-                seller_role = interaction.guild.get_role(seller_role_id)
+            seller_roles = []
+            if guild_settings.seller_role_ids:
+                seller_roles = [interaction.guild.get_role(rid) for rid in guild_settings.seller_role_ids if interaction.guild.get_role(rid)]
+            
+            seller_mentions = " ".join([role.mention for role in seller_roles])
 
             embed = discord.Embed(
                 title="Ticket Created",
@@ -437,7 +438,7 @@ class CustomTicketButton(Button):
             )
 
             message = await channel.send(
-                content=f"{interaction.user.mention}, {ticket_manager.mention} {seller_role.mention if seller_role else ""}",
+                content=f"{interaction.user.mention}, {ticket_manager.mention} {seller_mentions}",
                 embed=embed, view=view)
             await Database.tickets().update_one(
                 {"_id": ticket.id},

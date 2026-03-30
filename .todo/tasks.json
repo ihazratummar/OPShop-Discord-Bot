@@ -5,7 +5,7 @@
     "tags": [],
     "title": "Boss Fight Seller",
     "description": "This role will work as seller role",
-    "status": "TODO",
+    "status": "IN_PROGRESS",
     "date": {
       "date": {
         "year": 2026,
@@ -27,7 +27,7 @@
     "tags": [],
     "title": "Giveaway",
     "description": "Create a normal giveway command without json embed",
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "date": {
       "date": {
         "year": 2026,
@@ -61,6 +61,28 @@
         "minute": 24,
         "second": 15,
         "nano": 942774000
+      }
+    },
+    "isImported": false
+  },
+  {
+    "id": "TASK_12",
+    "priority": "LOW",
+    "tags": [],
+    "title": "Add Emoji",
+    "description": "Add Emoji to shop panel",
+    "status": "TODO",
+    "date": {
+      "date": {
+        "year": 2026,
+        "month": 3,
+        "day": 27
+      },
+      "time": {
+        "hour": 8,
+        "minute": 26,
+        "second": 20,
+        "nano": 74090000
       }
     },
     "isImported": false

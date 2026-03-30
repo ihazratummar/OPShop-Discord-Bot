@@ -19,14 +19,15 @@ class GuildSettingService:
         return GuildSettings(guild_id=guild.id)
 
     @staticmethod
-    async def get_seller_role(guild: discord.Guild) -> discord.Role | None:
+    async def get_seller_roles(guild: discord.Guild) -> list[discord.Role]:
         guild_settings = await GuildSettingService.get_guild_settings(guild)
-        seller_role: discord.Role
-        if guild_settings:
-            seller_role_id = guild_settings.seller_role_id
-            if seller_role_id:
-                return guild.get_role(seller_role_id)
-        return None
+        seller_roles = []
+        if guild_settings and guild_settings.seller_role_ids:
+            for role_id in guild_settings.seller_role_ids:
+                role = guild.get_role(role_id)
+                if role:
+                    seller_roles.append(role)
+        return seller_roles
 
 
     @staticmethod

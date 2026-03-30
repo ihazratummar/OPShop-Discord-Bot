@@ -9,20 +9,36 @@ class GuildCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="set_seller_role", description="Set seller role")
+    @app_commands.command(name="add_seller_role", description="Add a seller role")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(role="Mention a seller role")
-    async def set_seller_role(self, interaction: discord.Interaction, role: discord.Role):
+    async def add_seller_role(self, interaction: discord.Interaction, role: discord.Role):
         await interaction.response.defer(ephemeral=True)
 
         try:
             await Database.guild_settings().update_one(
                 {"guild_id": interaction.guild.id},
-                {"$set": {"seller_role_id": role.id}},
+                {"$addToSet": {"seller_role_ids": role.id}},
                 upsert=True
             )
-            await interaction.followup.send(f"{role.mention} has been set to your seller role.")
+            await interaction.followup.send(f"{role.mention} has been added to seller roles.")
+        except Exception as e :
+            await interaction.followup.send(f"❌ Error: {e}")
+
+    @app_commands.command(name="remove_seller_role", description="Remove a seller role")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(role="Mention a seller role")
+    async def remove_seller_role(self, interaction: discord.Interaction, role: discord.Role):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await Database.guild_settings().update_one(
+                {"guild_id": interaction.guild.id},
+                {"$pull": {"seller_role_ids": role.id}}
+            )
+            await interaction.followup.send(f"{role.mention} has been removed from seller roles.")
         except Exception as e :
             await interaction.followup.send(f"❌ Error: {e}")
 

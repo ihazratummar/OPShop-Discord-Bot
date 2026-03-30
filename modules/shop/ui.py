@@ -506,15 +506,15 @@ class ItemOrderButton(Button):
                 embed.add_field(name="Category", value=category_path, inline=True)
 
                 guild_setting = await GuildSettingService.get_guild_settings(interaction.guild)
-                seller_role = None
-                if guild_setting:
-                    seller_role_id = guild_setting.seller_role_id
-                    if seller_role_id:
-                        seller_role = interaction.guild.get_role(seller_role_id)
+                seller_roles = []
+                if guild_setting and guild_setting.seller_role_ids:
+                    seller_roles = [interaction.guild.get_role(rid) for rid in guild_setting.seller_role_ids if interaction.guild.get_role(rid)]
+
+                seller_mentions = " ".join([role.mention for role in seller_roles])
 
                 view = TicketControlView(str(ticket.id), is_item_ticket=True)
                 message = await channel.send(
-                    content=f"{interaction.user.mention} {seller_role.mention if seller_role else ""}", embed=embed,
+                    content=f"{interaction.user.mention} {seller_mentions}", embed=embed,
                     view=view)
                 await Database.tickets().update_one(
                     {"_id": ticket.id},

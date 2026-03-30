@@ -5,7 +5,7 @@ from core.models.base import MongoModel
 class GuildSettings(MongoModel):
     guild_id: int = Field(..., description="Guild id")
     invite_logs_channel_id: Optional[int]  = None
-    seller_role_id: Optional[int] = None
+    seller_role_ids: list[int] = Field(default_factory=list)
     rep_log_channel : Optional[int] = None
     rep_channel: Optional[int] = None
     server_logs_channel_id : Optional[int] = None

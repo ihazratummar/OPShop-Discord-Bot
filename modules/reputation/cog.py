@@ -31,12 +31,13 @@ class Reputation(commands.Cog):
             return
 
         guild_settings = await GuildSettingService.get_guild_settings(guild=interaction.guild)
-        seller_role = interaction.guild.get_role(guild_settings.seller_role_id)
-        if not seller_role:
-            await interaction.followup.send(f"Seller role not configured!", ephemeral=True)
+        seller_roles = [interaction.guild.get_role(rid) for rid in guild_settings.seller_role_ids if interaction.guild.get_role(rid)]
+        if not seller_roles:
+            await interaction.followup.send(f"Seller roles not configured!", ephemeral=True)
+            return
 
-        if seller_role not in member.roles:
-            await interaction.followup.send(f"User do not have {seller_role.name} role.", ephemeral=True)
+        if not any(role in member.roles for role in seller_roles):
+            await interaction.followup.send(f"User do not have a seller role.", ephemeral=True)
             return
 
         await ReputationService.add_reputation(
