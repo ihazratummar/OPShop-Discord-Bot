@@ -158,6 +158,73 @@ class StickyMessageCog(commands.Cog):
                 )
                 sticky.bot_message_id = new_msg.id
 
+    # ─── /sticky_remove ───────────────────────────────────────────────────────
+
+    @app_commands.command(name="sticky_remove", description="Completely remove a sticky message")
+    @app_commands.describe(message_id="The original message ID of the sticky to remove")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def sticky_remove(self, interaction: discord.Interaction, message_id: str):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            msg_id = int(message_id)
+        except ValueError:
+            await interaction.followup.send("❌ Invalid message ID.", ephemeral=True)
+            return
+
+        channel = interaction.channel
+        sticky = await StickyMessageService.get_by_message(channel.id, msg_id)
+
+        if not sticky:
+            await interaction.followup.send(
+                "❌ No sticky found with that ID in this channel.", ephemeral=True
+            )
+            return
+
+        await self._delete_bot_msg(channel, sticky.bot_msg_id)
+        await StickyMessageService.delete(channel.id, msg_id)
+
+        await interaction.followup.send(f"🗑️ Sticky `{msg_id}` removed.", ephemeral=True)
+
+    # ─── /getstickies ─────────────────────────────────────────────────────────
+
+    @app_commands.command(name="getstickies", description="List all active stickies in this server")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def getstickies(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        stickies: list[StickyMessage] = await StickyMessageService.get_active_by_guild_id(
+            interaction.guild.id
+        )
+
+        if not stickies:
+            await interaction.followup.send("No active stickies in this server.", ephemeral=True)
+            return
+
+        embed = discord.Embed(title="📌 Active Stickies", color=discord.Color.orange())
+
+        for sticky in stickies:
+            channel = interaction.guild.get_channel(sticky.channel_id)
+            channel_name = f"#{channel.name}" if channel else f"`{sticky.channel_id}`"
+
+            preview = (
+                    sticky.snapshot.content
+                    or (sticky.snapshot.embeds[0].title if sticky.snapshot and sticky.snapshot.embeds else None)
+                    or "*(no preview)*"
+            )
+
+            embed.add_field(
+                name=channel_name,
+                value=(
+                    f"Message ID: `{sticky.message_id}`\n"
+                    f"Type: `{sticky.type}`\n"
+                    f"Preview: {preview[:80]}{'...' if len(preview) > 80 else ''}"
+                ),
+                inline=False,
+            )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(StickyMessageCog(bot))
