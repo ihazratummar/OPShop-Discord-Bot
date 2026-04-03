@@ -5,7 +5,7 @@
     "tags": [],
     "title": "Boss Fight Seller",
     "description": "This role will work as seller role",
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "date": {
       "date": {
         "year": 2026,
@@ -49,7 +49,7 @@
     "tags": [],
     "title": "Sticky Message",
     "description": "Create sticky message",
-    "status": "TODO",
+    "status": "IN_PROGRESS",
     "date": {
       "date": {
         "year": 2026,

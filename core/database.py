@@ -92,4 +92,9 @@ class Database:
         return cls.get_db().giveaways_logs
 
 
+    @classmethod
+    def sticky_message_collection(cls):
+        return cls.get_db().sticky_message_collection
+
+
 
