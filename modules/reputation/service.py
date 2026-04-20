@@ -209,7 +209,7 @@ class ReputationService:
                         )
                         log_channel = await ReputationService.get_rep_log_channel(guild=guild)
                         if log_channel:
-                            await log_channel.send(f"{member.mention} earned **{role.name}** for reaching {tier.threshold} reputation points!")
+                            await log_channel.send(f"{member.mention} earned **{role.mention}** for reaching {tier.threshold} reputation points!")
                         logger.info(f"Awarded role {role.name} to {member.name}")
                     except discord.Forbidden:
                         logger.warning(f"Missing permissions to add role {role.name}")
