@@ -25,6 +25,7 @@ class Item(MongoModel):
     currency: Literal['credits', 'tokens', 'coins'] = Field(default='coins')
     
     # Visuals
+    item_emoji: Optional[str] = Field(default=None, description="Emoji used to display this item")
     image_url: Optional[str] = Field(default=None, description="Optional image to show in embed")
     
     # Configuration
@@ -42,6 +43,7 @@ class Category(MongoModel):
     rank: int = Field(default=0, description="For sorting order")
     is_active: bool = True
     image_url: Optional[str] = Field(default=None, description="Optional image for the category embed")
+    category_emoji: Optional[str] = Field(default=None, description="Emoji used to display this category")
     parent_id: Optional[str] = Field(default=None, description="ID of parent category if this is a subcategory")
 
 class ShopPanel(MongoModel):

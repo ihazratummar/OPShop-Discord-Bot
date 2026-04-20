@@ -94,7 +94,8 @@ async def get_root_embed(
             else:
                 desc += f">>> Coming Soon"
 
-            _add_safe_fields(embed, cat.name, desc, inline=False)
+            name = f"{cat.category_emoji} {cat.name}" if cat.category_emoji else cat.name
+            _add_safe_fields(embed, name, desc, inline=False)
 
 
     embed.set_footer(text="Select a category to view items.")
@@ -107,8 +108,9 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
     visible_items = items[start:end]
     total_items = len(items)
 
+    title_emoji = category.category_emoji if category.category_emoji else "📂"
     embed = discord.Embed(
-        title=f"📂 {category.name}",
+        title=f"{title_emoji} {category.name}",
         description=category.description or "No description.",
         color=discord.Color.gold()
     )
@@ -133,8 +135,9 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
         embed.add_field(name="Items (0)", value="*No items available.*", inline=False)
     else:
         for item in visible_items:
+            item_name = f"{item.item_emoji} {item.name}" if item.item_emoji else f"📦 {item.name}"
             embed.add_field(
-                name=f"📦 {item.name}",
+                name=item_name,
                 value=f"**Price:** {item.price:,.0f} {item.currency.title()}",
                 inline=True
             )
@@ -146,8 +149,9 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
 
 
 async def get_item_embed(item: Item) -> discord.Embed:
+    title = f"{item.item_emoji} {item.name}" if item.item_emoji else item.name
     embed = discord.Embed(
-        title=item.name,
+        title=title,
         description=item.description,
         color=discord.Color.green()
     )
@@ -225,7 +229,13 @@ class ShopRootView(View):
 class ShopCategorySelect(Select):
     def __init__(self, categories, user_id, placeholder="Select Category..."):
         self.user_id = user_id
-        options = [discord.SelectOption(label=c.name, value=str(c.id), emoji="📁") for c in categories]
+        options = [
+            discord.SelectOption(
+                label=c.name, 
+                value=str(c.id), 
+                emoji=c.category_emoji if c.category_emoji else "📁"
+            ) for c in categories
+        ]
         super().__init__(placeholder=placeholder, min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
@@ -322,7 +332,13 @@ class ShopCategoryView(View):
 class ShopItemSelect(Select):
     def __init__(self, items, user_id):
         self.user_id = user_id
-        options = [discord.SelectOption(label=i.name, value=str(i.id), emoji="📦") for i in items]
+        options = [
+            discord.SelectOption(
+                label=i.name, 
+                value=str(i.id), 
+                emoji=i.item_emoji if i.item_emoji else "📦"
+            ) for i in items
+        ]
         super().__init__(placeholder="View Item Details...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
@@ -440,7 +456,7 @@ class OrderNowView(View):
 class ItemOrderView(View):
     """Persistent view with Order button for item-specific panels."""
 
-    def __init__(self, item_id: str, button_name: str = None, button_emoji: str = None):
+    def __init__(self, item_id: str, button_name: str = "Order Now", button_emoji: str = "🛒"):
         super().__init__(timeout=None)
         self.item_id = item_id
         self.button_emoji = button_emoji
@@ -532,7 +548,11 @@ class EphemeralCategorySelect(Select):
     def __init__(self, subcategories: list, view_ref: 'EphemeralShopView'):
         self.view_ref = view_ref
         options = [
-            discord.SelectOption(label=c.name, value=str(c.id), emoji="📁")
+            discord.SelectOption(
+                label=c.name, 
+                value=str(c.id), 
+                emoji=c.category_emoji if c.category_emoji else "📁"
+            )
             for c in subcategories
         ]
         super().__init__(placeholder="Select Subcategory...", options=options)
@@ -557,7 +577,11 @@ class EphemeralItemSelect(Select):
         self.view_ref = view_ref
         self.items = items
         options = [
-            discord.SelectOption(label=i.name, value=str(i.id), emoji="📦")
+            discord.SelectOption(
+                label=i.name, 
+                value=str(i.id), 
+                emoji=i.item_emoji if i.item_emoji else "📦"
+            )
             for i in items
         ]
         super().__init__(placeholder="Select Item...", options=options)

@@ -39,7 +39,8 @@ async def get_root_embed(categories: list, page: int = 0) -> discord.Embed:
             cat_stat = stats.get(str(cat.id), {'items': 0, 'subcats': 0})
             item_count = cat_stat['items']
             sub_count = cat_stat['subcats']
-            desc_list += f"• **{cat.name}** - {sub_count} Subcats, {item_count} Items\n"
+            name = f"{cat.category_emoji} {cat.name}" if cat.category_emoji else cat.name
+            desc_list += f"• **{name}** - {sub_count} Subcats, {item_count} Items\n"
         
         _add_safe_fields(embed, "Root Categories", desc_list, inline=False)
     return embed
@@ -51,8 +52,9 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
     visible_items = items[start:end]
     total_items = len(items)
 
+    title_emoji = category.category_emoji if category.category_emoji else "📂"
     embed = discord.Embed(
-        title=f"📂 Managing: {category.name}", 
+        title=f"{title_emoji} Managing: {category.name}", 
         description=category.description or "No description", 
         color=discord.Color.gold()
     )
@@ -70,7 +72,8 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
          for sub in subcategories:
              sub_stat = stats.get(str(sub.id), {'items': 0})
              sub_item_count = sub_stat['items']
-             sub_list += f"• 📁 **{sub.name}** ({sub_item_count} items)\n"
+             sub_name = f"{sub.category_emoji} {sub.name}" if sub.category_emoji else f"📁 {sub.name}"
+             sub_list += f"• {sub_name} ({sub_item_count} items)\n"
          _add_safe_fields(embed, f"Subcategories ({len(subcategories)})", sub_list, inline=False)
     
     # Items — each item gets its own field
@@ -79,8 +82,9 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
     else:
         for item in visible_items:
             status = "🟢" if item.is_active else "🔴"
+            item_name = f"{item.item_emoji} {item.name}" if item.item_emoji else f"📦 {item.name}"
             embed.add_field(
-                name=f"{status} {item.name}",
+                name=f"{status} {item_name}",
                 value=f"**Price:** {item.price:,.0f} {item.currency}",
                 inline=True
             )
@@ -91,8 +95,9 @@ async def get_category_embed(category: Category, subcategories: list, items: lis
     return embed
 
 async def get_item_embed(item: Item, category_name: str) -> discord.Embed:
+    title = f"{item.item_emoji} Managing: {item.name}" if item.item_emoji else f"📦 Managing: {item.name}"
     embed = discord.Embed(
-        title=f"📦 Managing: {item.name}", 
+        title=title, 
         description=item.description,
         color=discord.Color.green() if item.is_active else discord.Color.red()
     )
@@ -120,11 +125,13 @@ class CategoryModal(Modal):
         self.desc_input = TextInput(label="Description", default=category.description if category else "", required=False)
         self.rank_input = TextInput(label="Rank", default=str(category.rank) if category else "0")
         self.img_input = TextInput(label="Image URL", default=category.image_url if category else "", required=False)
-        
+        self.emoji_input = TextInput(label="Emoji", default=category.category_emoji if category else "", required=False)
+
         self.add_item(self.name_input)
         self.add_item(self.desc_input)
         self.add_item(self.rank_input)
         self.add_item(self.img_input)
+        self.add_item(self.emoji_input)
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
@@ -137,7 +144,8 @@ class CategoryModal(Modal):
             "name": self.name_input.value,
             "description": self.desc_input.value,
             "rank": rank,
-            "image_url": self.img_input.value
+            "image_url": self.img_input.value,
+            "category_emoji": self.emoji_input.value
         }
         
         if self.parent_id:
@@ -169,13 +177,13 @@ class ItemModal(Modal):
         self.price_input = TextInput(label="Price", default=str(item.price) if item else "0")
         self.desc_input = TextInput(label="Description", default=item.description if item else "", required=False, style=discord.TextStyle.paragraph)
         self.img_input = TextInput(label="Image URL", default=item.image_url if item else "", required=False)
-        self.reward_token = TextInput(label="Reward Shop Token", default= item.token_reward if item else "10", required=False, style=discord.TextStyle.short)
+        self.emoji_input = TextInput(label="Emoji", default=item.item_emoji if item else "", required=False)
 
         self.add_item(self.name_input)
         self.add_item(self.price_input)
         self.add_item(self.desc_input)
         self.add_item(self.img_input)
-        self.add_item(self.reward_token)
+        self.add_item(self.emoji_input)
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -184,11 +192,6 @@ class ItemModal(Modal):
         except ValueError:
             await interaction.response.send_message("Price must be number.", ephemeral=True)
             return
-        try:
-            token_reward = int(self.reward_token.value)
-        except ValueError:
-            await interaction.response.send_message("Reward token must be number.", ephemeral=True)
-            return
             
         data = {
             "name": self.name_input.value,
@@ -196,8 +199,17 @@ class ItemModal(Modal):
             "description": self.desc_input.value,
             "category_id": self.category_id,
             "image_url": self.img_input.value,
-            "token_reward" : token_reward
+            "item_emoji": self.emoji_input.value
         }
+
+        if self.item:
+            await ItemService.update_item(str(self.item.id), data)
+            msg = "Updated item!"
+        else:
+            # For new items, we use the default 10 reward if token_reward is missing
+            item = Item(**data)
+            await ItemService.create_item(item)
+            msg = "Created item!"
 
 
         
@@ -541,7 +553,13 @@ class AdminRootView(View):
 
 class CategorySelect(Select):
     def __init__(self, categories, placeholder="Select Category..."):
-         options = [discord.SelectOption(label=c.name, value=str(c.id), emoji="📁") for c in categories]
+         options = [
+             discord.SelectOption(
+                 label=c.name, 
+                 value=str(c.id), 
+                 emoji=c.category_emoji if c.category_emoji else "📁"
+             ) for c in categories
+         ]
          super().__init__(placeholder=placeholder, min_values=1, max_values=1, options=options)
          
     async def callback(self, interaction: discord.Interaction):
@@ -681,7 +699,13 @@ class AdminCategoryView(View):
 
 class ItemSelect(Select):
     def __init__(self, items):
-        options = [discord.SelectOption(label=i.name, value=str(i.id)) for i in items]
+        options = [
+            discord.SelectOption(
+                label=i.name, 
+                value=str(i.id), 
+                emoji=i.item_emoji if i.item_emoji else "📦"
+            ) for i in items
+        ]
         super().__init__(placeholder="Select Item...", min_values=1, max_values=1, options=options)
         
     async def callback(self, interaction: discord.Interaction):

@@ -65,6 +65,13 @@ class ShopPanelService:
                 # Message deleted
                 await ShopPanelService.delete_panel(panel.message_id)
                 return
+            except discord.Forbidden:
+                logger.warning(f"Lack permissions to fetch panel message {panel.message_id} in {panel.channel_id}")
+                return
+
+            if message.author.id != bot.user.id:
+                logger.warning(f"Skipping refresh for panel {panel.id}: message {panel.message_id} was authored by another user ({message.author})")
+                return
 
             # --- Handle Panel Types ---
             if panel.type == "custom":
@@ -132,6 +139,8 @@ class ShopPanelService:
             else:
                 await message.edit(view=view)
 
+        except discord.Forbidden:
+            logger.error(f"Failed to refresh panel {panel.id}: 403 Forbidden. Bot cannot edit this message.")
         except Exception as e:
             logger.error(f"Failed to refresh panel {panel.id}: {e}")
 
