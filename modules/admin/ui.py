@@ -1,7 +1,7 @@
 import discord
 from discord.ui import View, Modal, TextInput, Select, Button
 
-from modules.guild.service import GuildSettingService
+from modules.guild.service import GuildSettingService, EmojiUtils
 from modules.shop.services import CategoryService, ItemService, logger
 from modules.shop.models import Category, Item
 from modules.shop.ui import _add_safe_fields, CATEGORY_PAGE_SIZE
@@ -140,12 +140,22 @@ class CategoryModal(Modal):
             await interaction.response.send_message("Rank must be number.", ephemeral=True)
             return
 
+        # Validate emoji
+        raw_emoji = self.emoji_input.value
+        validated_emoji = EmojiUtils.validate_emoji(raw_emoji, guild=interaction.guild) if raw_emoji else None
+        if raw_emoji and raw_emoji.strip() and validated_emoji is None:
+            await interaction.response.send_message(
+                f"❌ `{raw_emoji}` is not a valid emoji. Use a Unicode emoji (e.g. 🎮) or a custom server emoji.",
+                ephemeral=True
+            )
+            return
+
         data = {
             "name": self.name_input.value,
             "description": self.desc_input.value,
             "rank": rank,
             "image_url": self.img_input.value,
-            "category_emoji": self.emoji_input.value
+            "category_emoji": validated_emoji
         }
         
         if self.parent_id:
@@ -190,38 +200,36 @@ class ItemModal(Modal):
         try:
             price = float(self.price_input.value)
         except ValueError:
-            await interaction.response.send_message("Price must be number.", ephemeral=True)
+            await interaction.edit_original_response(content="❌ Price must be a number.")
             return
-            
+
+        # Validate emoji
+        raw_emoji = self.emoji_input.value
+        validated_emoji = EmojiUtils.validate_emoji(raw_emoji, guild=interaction.guild) if raw_emoji else None
+        if raw_emoji and raw_emoji.strip() and validated_emoji is None:
+            await interaction.edit_original_response(
+                content=f"❌ `{raw_emoji}` is not a valid emoji. Use a Unicode emoji (e.g. 🎮) or a custom server emoji."
+            )
+            return
+
         data = {
             "name": self.name_input.value,
             "price": price,
             "description": self.desc_input.value,
             "category_id": self.category_id,
             "image_url": self.img_input.value,
-            "item_emoji": self.emoji_input.value
+            "item_emoji": validated_emoji
         }
 
         if self.item:
             await ItemService.update_item(str(self.item.id), data)
             msg = "Updated item!"
         else:
-            # For new items, we use the default 10 reward if token_reward is missing
             item = Item(**data)
             await ItemService.create_item(item)
             msg = "Created item!"
 
-
-        
-        if self.item:
-            await ItemService.update_item(str(self.item.id), data)
-            msg = "Updated item!"
-        else:
-            item = Item(**data)
-            await ItemService.create_item(item)
-            msg = "Created item!"
-            
-        await interaction.edit_original_response(content=msg, view= self.view_origin)
+        await interaction.edit_original_response(content=msg, view=self.view_origin)
         if hasattr(self.view_origin, 'refresh'):
             await self.view_origin.refresh(interaction)
 
@@ -384,12 +392,15 @@ class ItemEmbedJsonModal(Modal):
         
         try:
 
-            ## Validate Emoji
-
-            emoji = GuildSettingService.is_custom_discord_emoji(self.button_emoji, guild=interaction.guild)
-            if not emoji:
-                await interaction.followup.send(f"❌ `{self.button_emoji}` is not a valid emoji.", ephemeral=True)
+            ## Validate Emoji (supports both Unicode and custom)
+            validated_emoji = EmojiUtils.validate_emoji(self.button_emoji, guild=interaction.guild)
+            if not validated_emoji:
+                await interaction.followup.send(
+                    f"❌ `{self.button_emoji}` is not a valid emoji. Use a Unicode emoji (e.g. 🛒) or a custom server emoji.",
+                    ephemeral=True
+                )
                 return
+            self.button_emoji = validated_emoji
 
             # Validate item exists
             item = await ItemService.get_item(self.item_id)
@@ -557,7 +568,7 @@ class CategorySelect(Select):
              discord.SelectOption(
                  label=c.name, 
                  value=str(c.id), 
-                 emoji=c.category_emoji if c.category_emoji else "📁"
+                 emoji=EmojiUtils.safe_emoji_for_component(c.category_emoji, "📁")
              ) for c in categories
          ]
          super().__init__(placeholder=placeholder, min_values=1, max_values=1, options=options)
@@ -703,7 +714,7 @@ class ItemSelect(Select):
             discord.SelectOption(
                 label=i.name, 
                 value=str(i.id), 
-                emoji=i.item_emoji if i.item_emoji else "📦"
+                emoji=EmojiUtils.safe_emoji_for_component(i.item_emoji, "📦")
             ) for i in items
         ]
         super().__init__(placeholder="Select Item...", min_values=1, max_values=1, options=options)

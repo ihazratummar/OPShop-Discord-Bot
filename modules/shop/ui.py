@@ -6,7 +6,7 @@ from loguru import logger
 
 from core.constant import Emoji
 from core.database import Database
-from modules.guild.service import GuildSettingService
+from modules.guild.service import GuildSettingService, EmojiUtils
 from modules.shop.models import Category, Item
 from modules.shop.services import CategoryService, ItemService
 from modules.tickets.models import Ticket
@@ -233,7 +233,7 @@ class ShopCategorySelect(Select):
             discord.SelectOption(
                 label=c.name, 
                 value=str(c.id), 
-                emoji=c.category_emoji if c.category_emoji else "📁"
+                emoji=EmojiUtils.safe_emoji_for_component(c.category_emoji, "📁")
             ) for c in categories
         ]
         super().__init__(placeholder=placeholder, min_values=1, max_values=1, options=options)
@@ -336,7 +336,7 @@ class ShopItemSelect(Select):
             discord.SelectOption(
                 label=i.name, 
                 value=str(i.id), 
-                emoji=i.item_emoji if i.item_emoji else "📦"
+                emoji=EmojiUtils.safe_emoji_for_component(i.item_emoji, "📦")
             ) for i in items
         ]
         super().__init__(placeholder="View Item Details...", min_values=1, max_values=1, options=options)
@@ -471,7 +471,7 @@ class ItemOrderButton(Button):
         super().__init__(
             label=button_name,
             style=discord.ButtonStyle.green,
-            emoji=button_emoji,
+            emoji=EmojiUtils.safe_emoji_for_component(button_emoji, "🛒"),
             custom_id=f"item_order:{item_id}"
         )
         self.item_id = item_id
@@ -551,7 +551,7 @@ class EphemeralCategorySelect(Select):
             discord.SelectOption(
                 label=c.name, 
                 value=str(c.id), 
-                emoji=c.category_emoji if c.category_emoji else "📁"
+                emoji=EmojiUtils.safe_emoji_for_component(c.category_emoji, "📁")
             )
             for c in subcategories
         ]
@@ -580,7 +580,7 @@ class EphemeralItemSelect(Select):
             discord.SelectOption(
                 label=i.name, 
                 value=str(i.id), 
-                emoji=i.item_emoji if i.item_emoji else "📦"
+                emoji=EmojiUtils.safe_emoji_for_component(i.item_emoji, "📦")
             )
             for i in items
         ]
