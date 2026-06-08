@@ -768,7 +768,7 @@ class TicketService:
         #                 interaction.user.id
         #             )
         #         )
-        #         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value),
+        #         emoji = GuildSettingService.get_server_emoji(emoji_id=Emoji.SHOP_TOKEN.value,
         #                                                      guild=interaction.guild)
         #         tasks.append(
         #             interaction.channel.send(
@@ -794,7 +794,7 @@ class TicketService:
         #         f"Reward for purchasing",
         #         interaction.user.id
         #     )
-        #     emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=interaction.guild)
+        #     emoji = GuildSettingService.get_server_emoji(emoji_id=Emoji.SHOP_TOKEN.value, guild=interaction.guild)
         #     await interaction.channel.send(f"🎉 {ticket_user.mention} rewarded **10** {emoji if emoji else "🪙"} Tokens!")
         #
         #     await ReputationService.add_rep(

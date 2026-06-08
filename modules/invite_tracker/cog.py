@@ -6,6 +6,7 @@ from loguru import logger
 
 from core.models.user import User
 from modules.invite_tracker.service import InviteTrackerService
+from modules.guild.service import GuildSettingService
 
 
 class InviteTrackerCog(commands.Cog):
@@ -15,6 +16,18 @@ class InviteTrackerCog(commands.Cog):
     @commands.Cog.listener(name="on_member_join")
     async def on_member_join(self, member: discord.Member):
         guild = member.guild
+        
+        # 0. Assign Auto Role if configured
+        try:
+            guild_settings = await GuildSettingService.get_guild_settings(guild=guild)
+            if guild_settings and guild_settings.auto_role_id:
+                auto_role = guild.get_role(guild_settings.auto_role_id)
+                if auto_role:
+                    await member.add_roles(auto_role, reason="Auto Role configuration")
+                    logger.info(f"[InviteTracker] Assigned auto role {auto_role.name} to {member.id}")
+        except Exception as e:
+            logger.error(f"[InviteTracker] Failed to assign auto role to {member.id}: {e}")
+
         
         # 1. Always ensure User exists in DB
         user = User(

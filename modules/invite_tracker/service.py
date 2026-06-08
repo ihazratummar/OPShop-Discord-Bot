@@ -260,7 +260,7 @@ class InviteTrackerService:
                         emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.BLUE_STAR.value), guild=guild)
                         reward_message = f"{emoji or '🔮'} +1 reputation!"
                     else:
-                        emoji = GuildSettingService.get_server_emoji(emoji_id=int(Emoji.SHOP_TOKEN.value), guild=guild)
+                        emoji = GuildSettingService.get_server_emoji(emoji_id=Emoji.SHOP_TOKEN.value, guild=guild)
                         reward_message = f"{emoji or '🪙'} 10 Shop Tokens"
 
                     embed.add_field(name="Inviter Total", value=f"**{count}** total invites", inline=True)

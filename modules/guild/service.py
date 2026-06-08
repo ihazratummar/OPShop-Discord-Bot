@@ -148,11 +148,18 @@ class GuildSettingService:
         return seller_roles
 
     @staticmethod
-    def get_server_emoji(emoji_id: int, guild: discord.Guild) -> discord.Emoji | None:
-        emoji = guild.get_emoji(emoji_id)
-        if emoji:
-            return emoji
-        return None
+    def get_server_emoji(emoji_id: int | str, guild: discord.Guild) -> discord.Emoji | None:
+        if isinstance(emoji_id, int) or str(emoji_id).isdigit():
+            emoji = guild.get_emoji(int(emoji_id))
+            if emoji:
+                return emoji
+            return discord.utils.get(guild._state.emojis, id=int(emoji_id))
+        else:
+            name = str(emoji_id)
+            emoji = discord.utils.get(guild.emojis, name=name)
+            if emoji:
+                return emoji
+            return discord.utils.get(guild._state.emojis, name=name)
 
 
 

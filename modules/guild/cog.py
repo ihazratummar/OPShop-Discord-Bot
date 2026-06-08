@@ -60,5 +60,22 @@ class GuildCog(commands.Cog):
             await interaction.followup.send(f"❌ Error: {e}")
 
 
+    @app_commands.command(name="set_auto_role", description="Set the role given to new members automatically")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(role="Mention the auto role")
+    async def set_auto_role(self, interaction: discord.Interaction, role: discord.Role):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await Database.guild_settings().update_one(
+                {"guild_id": interaction.guild.id},
+                {"$set": {"auto_role_id": role.id}},
+                upsert=True
+            )
+            await interaction.followup.send(f"{role.mention} has been set as the auto role for new members.")
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {e}")
+
 async def setup(bot):
     await bot.add_cog(GuildCog(bot))
